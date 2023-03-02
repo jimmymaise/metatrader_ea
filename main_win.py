@@ -9,6 +9,7 @@ import time
 #     # port = 18812       (default)
 # )
 import MetaTrader5 as mt5
+import requests
 
 
 symbol = 'EURUSD_'
@@ -20,6 +21,8 @@ magic_number = 123456
 mt5.initialize()
 
 print(mt5.terminal_info())
+
+mt5.orders_get()
 
 
 def open_trade(symbol, lot, stop_loss, take_profit, magic_number):
@@ -35,6 +38,7 @@ def open_trade(symbol, lot, stop_loss, take_profit, magic_number):
         'comment': 'Python EA'
     }
     result = mt5.order_send(request)
+    print(result)
     return result
 
 
@@ -43,6 +47,8 @@ def main():
         tick = mt5.symbol_info_tick(symbol)
         if tick.ask > tick.last:
             result = open_trade(symbol, lot, stop_loss, take_profit, magic_number)
+            if not result:
+                print(mt5.last_error())
             print(f'Trade opened: with {tick.ask}', result)
             break
         time.sleep(1)
