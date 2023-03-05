@@ -1,6 +1,5 @@
 # import the package
 import time
-from datetime import datetime, timedelta
 import requests
 import MetaTrader5 as mt5
 
@@ -42,7 +41,8 @@ class TradingFromSignal:
             signal['magic_numbers'] = int(f'{magic_number_prefix}{signal["signal_id"]}')
             magic_numbers_from_signals.append(signal['magic_numbers'])
 
-        open_copied_positions_dict = {position.magic: position for position in mt5.positions_get() if
+        open_copied_positions_dict = {position.magic: position for position in
+                                      self.mt5_handler.get_current_open_position() if
                                       str(position.magic).startswith(magic_number_prefix)}
 
         open_copied_position_to_be_closed_dict = {magic_number: position for magic_number, position in
@@ -50,11 +50,13 @@ class TradingFromSignal:
                                                   magic_number not in magic_numbers_from_signals}
 
         closed_copied_deals_dict = {deal.magic: deal for deal in
-                                    mt5.history_deals_get((datetime.today() - timedelta(days=100)),
-                                                          datetime.now() + timedelta(days=100)) if
-                                    str(deal.magic).startswith(
-                                        magic_number_prefix) and not open_copied_positions_dict.get(
-                                        deal.magic)}
+                                    self.mt5_handler.get_history_deal_within_x_days(10) if
+                                    (is_deal_created_by_bot_and_closed :=
+                                     str(deal.magic).startswith(
+                                         magic_number_prefix) and not open_copied_positions_dict.get(
+                                         deal.magic)
+                                     )
+                                    }
 
         for signal in signals:
             signal_magic_number = signal['magic_numbers']

@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta
+
+
 class Mt5Handler:
     def __init__(self, mt5, logger, ea_name=None):
         self.mt5 = mt5
@@ -80,6 +83,16 @@ class Mt5Handler:
             self.logger.info(f'\t[OK]: {result.comment}')
 
         return result
+
+    def get_history_deal_within_x_days(self, x_days):
+        start_time = datetime.today() - timedelta(days=x_days)
+        # as this library has with end time.  Perhaps time zone diff
+        end_time = datetime.now() + timedelta(days=2)
+
+        self.mt5.history_deals_get(start_time, end_time)
+
+    def get_current_open_position(self):
+        return self.mt5.positions_get()
 
     def shutdown(self):
         self.mt5.shutdown()
