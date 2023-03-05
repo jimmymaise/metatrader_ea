@@ -89,7 +89,7 @@ class Mt5Handler:
         # as this library has with end time.  Perhaps time zone diff
         end_time = datetime.now() + timedelta(days=2)
 
-        self.mt5.history_deals_get(start_time, end_time)
+        return self.mt5.history_deals_get(start_time, end_time)
 
     def get_current_open_position(self):
         return self.mt5.positions_get()
