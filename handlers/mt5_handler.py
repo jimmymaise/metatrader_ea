@@ -8,6 +8,10 @@ class Mt5Setting:
     login_id: int
     password: str
     setup_path: str
+    symbol_postfix: str
+    log_file_path: str
+    master_trader_id: str
+    source: str
 
 
 class Mt5Handler:
@@ -50,6 +54,12 @@ class Mt5Handler:
         return self.send_order_request(request)
 
     def open_trade(self, symbol, volume, order_type, stop_loss, take_profit, magic_number):
+        selected = self.mt5.symbol_select(symbol, True)
+
+        if not selected:
+            raise Exception(
+                f"Exception: Failed to select {symbol}, error code ={self.mt5.last_error()}")
+
         request = {
             'action': self.mt5.TRADE_ACTION_DEAL,
             'symbol': symbol,
@@ -96,10 +106,10 @@ class Mt5Handler:
         result = self.mt5.order_send(request)
 
         if not result:
-            self.logger.info(f'\t\t[Error]: {self.mt5.last_error()}')
+            self.logger.error(f'\t\t[Error]: {self.mt5.last_error()}')
 
-        elif result.comment not in ['Request executed']:
-            self.logger.info(f'\t\t[Error]: {result.comment}')
+        elif result.comment not in ['Request executed'] and result.comment not in request['comment']:
+            self.logger.warn(f'\t\t[Result Comment]: {result.comment}')
 
         else:
             self.logger.info(f'\t[OK]: {result.comment}')

@@ -1,47 +1,28 @@
 # import the package
+import json
 import time
 import requests
 import MetaTrader5 as mt5
+from multiprocessing import Process
 
 from handlers.logger import Logger
 from handlers.mt5_handler import Mt5Handler
 from handlers.mt5_handler import Mt5Setting
 
-SEPARATOR_NUMBER_STRING = '999'
+SEPARATOR_NUMBER_STRING = '752'
 BASE_CONTROLLER_URL = 'http://127.0.0.1:8000/'
 
 
 class TradingFromSignal:
-    def __init__(self):
-        self.logger = Logger().get_logger()
+    def __init__(self, mt5_setting: Mt5Setting):
+        self.logger = Logger(mt5_setting.log_file_path).get_logger()
 
-        MT5_ORIGINAL_PATH = "C:/Program Files/MetaTrader 5/terminal64.exe"
-        MT5_COPY_PATH = "C:/repos/test_mt5/1_mt5/terminal64.exe"
+        self.mt5_handler = Mt5Handler(mt5, self.logger, mt5_setting)
+        self.mt5_setting = mt5_setting
+        self.logger.error(mt5.last_error())
 
-        LITE_FINANCE_PATH = "C:/Program Files/LiteFinance MT5 Terminal/terminal64.exe"
-
-        mt5_seeting = Mt5Setting(
-            server="Exness-MT5Trial7",
-            login_id=78743301,
-            password="Duyet@1234",
-            setup_path=LITE_FINANCE_PATH
-        )
-        self.mt5_handler = Mt5Handler(mt5, self.logger, mt5_seeting)
-
-        # mt5_seeting = Mt5Setting(
-        #     server="YouGoTrade-Server",
-        #     login_id=947526,
-        #     password="w3bfkhdq",
-        #     setup_path="C:/Program Files/MetaTrader 5/terminal64.exe"
-        # )
-        # self.mt5_handler = Mt5Handler(mt5, self.logger, mt5_seeting)
-
-        print(mt5.last_error())
-        print("AAAA")
-
-    @staticmethod
-    def normalize_symbol(raw_symbol):
-        return f"{raw_symbol.replace('/', '')}"
+    def normalize_symbol(self, raw_symbol):
+        return f"{raw_symbol.replace('/', '')}{self.mt5_setting.symbol_postfix}"
 
     def get_signal_from_api(self, master_id, source_id):
         headers = {'Content-Type': 'application/json'}
@@ -119,6 +100,7 @@ class TradingFromSignal:
             else:
                 self.logger.info(
                     f"Signal {signal_magic_number} will CREATE new trade")
+
                 order_type = mt5.ORDER_TYPE_BUY if signal['type'] == 'BUY' else mt5.ORDER_TYPE_SELL
 
                 self.mt5_handler.open_trade(symbol=self.normalize_symbol(signal['symbol']),
@@ -135,8 +117,8 @@ class TradingFromSignal:
             self.mt5_handler.close_trade_by_position(position)
 
     def run(self):
-        master_trader_id = '404656'
-        source = 'zulu'
+        master_trader_id = self.mt5_setting.external_trader_id
+        source = self.mt5_setting.source
         try:
             while True:
                 signals_from_api = self.get_signal_from_api(
@@ -156,5 +138,21 @@ class TradingFromSignal:
             self.mt5_handler.shutdown()
 
 
+def worker(mt5_setting):
+    bot = TradingFromSignal(mt5_setting)
+    bot.run()
+
+
 if __name__ == '__main__':
-    TradingFromSignal().run()
+    with open('./terminal_login.json') as content:
+        terminals = json.load(content)
+    procs = []
+    mt5_settings = [Mt5Setting(**terminal) for terminal in terminals]
+
+    for mt5_setting in mt5_settings:
+        proc = Process(target=worker, args=(mt5_setting,))
+        procs.append(proc)
+        proc.start()
+
+    for proc in procs:
+        proc.join()
