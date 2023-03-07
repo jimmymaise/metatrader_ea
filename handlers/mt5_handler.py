@@ -1,11 +1,33 @@
 from datetime import datetime, timedelta
+from dataclasses import dataclass
+
+
+@dataclass
+class Mt5Setting:
+    server: str
+    login_id: int
+    password: str
+    setup_path: str
 
 
 class Mt5Handler:
-    def __init__(self, mt5, logger, ea_name=None):
+    def __init__(self, mt5, logger, mt5_setting: Mt5Setting = None, ea_name=None):
         self.mt5 = mt5
-        mt5.initialize()
-        mt5.terminal_info()
+        if mt5_setting:
+            setup = mt5.initialize(login=mt5_setting.login_id,
+                                   server=mt5_setting.server,
+                                   password=mt5_setting.password,
+                                   path=mt5_setting.setup_path)
+
+        else:
+            setup = mt5.initialize()
+
+        if not setup:
+            raise Exception(
+                f'{self.mt5.last_error()} with setting {mt5_setting}')
+
+        print(mt5.terminal_info())
+
         self.logger = logger
         self.ea_name = ea_name or 'Python EA'
 
