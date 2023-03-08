@@ -15,11 +15,14 @@ BASE_CONTROLLER_URL = 'http://127.0.0.1:8000/'
 
 class TradingFromSignal:
     def __init__(self, mt5_setting: Mt5Setting):
-        self.logger = Logger(mt5_setting.log_file_path).get_logger()
+        self.logger = Logger(log_file_path=mt5_setting.log_file_path, message_prefix=mt5_setting.bot_name).get_logger()
 
         self.mt5_handler = Mt5Handler(mt5, self.logger, mt5_setting)
         self.mt5_setting = mt5_setting
         self.logger.error(mt5.last_error())
+        self.bot_info = f'{mt5_setting.login_id}@{mt5_setting.server}' \
+                        f'(copy:{mt5_setting.source}/{mt5_setting.master_trader_id})'
+        self.bot_name = mt5_setting.bot_name
 
     def normalize_symbol(self, raw_symbol):
         return f"{raw_symbol.replace('/', '')}{self.mt5_setting.symbol_postfix}"
@@ -125,15 +128,18 @@ class TradingFromSignal:
                     master_trader_id, source)
 
                 self.logger.info('-------------START---------------')
+                self.logger.info(f'Bot info {self.bot_info}')
 
                 self.logger.info(f'\nGet signals {signals_from_api}\n')
                 self.process_signals_from_master_trader(
                     master_trader_id, signals_from_api[0:])
 
+                self.logger.info(f'Bot info {self.bot_info}')
                 self.logger.info('--------------END----------------')
 
                 time.sleep(30)
         finally:
+            self.logger.info(f'Bot info {self.bot_info} is going to shutdown')
             self.logger.info('--------------SHUTDOWN MT5---------------')
             self.mt5_handler.shutdown()
 

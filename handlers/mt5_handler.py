@@ -12,6 +12,7 @@ class Mt5Setting:
     log_file_path: str
     master_trader_id: str
     source: str
+    bot_name: str
 
 
 class Mt5Handler:
