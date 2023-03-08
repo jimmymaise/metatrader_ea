@@ -117,7 +117,7 @@ class TradingFromSignal:
             self.mt5_handler.close_trade_by_position(position)
 
     def run(self):
-        master_trader_id = self.mt5_setting.external_trader_id
+        master_trader_id = self.mt5_setting.master_trader_id
         source = self.mt5_setting.source
         try:
             while True:
