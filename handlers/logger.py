@@ -35,8 +35,8 @@ class Logger:
     def debug(self, message):
         self._logger.debug(f'{self.message_prefix}|{message}')
 
-    def warn(self, message):
-        self._logger.warn(f'{self.message_prefix}|{message}')
+    def warning(self, message):
+        self._logger.warning(f'{self.message_prefix}|{message}')
 
     def error(self, message):
         self._logger.debug(f'{self.message_prefix}|{message}')
