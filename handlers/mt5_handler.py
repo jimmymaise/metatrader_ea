@@ -9,7 +9,7 @@ class Mt5Setting:
     password: str
     setup_path: str
     symbol_postfix: str
-    log_file_path: str
+    log_file_folder_path: str
     master_trader_id: str
     source: str
     bot_name: str

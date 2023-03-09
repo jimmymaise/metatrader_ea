@@ -8,6 +8,7 @@ from multiprocessing import Process
 from handlers.logger import Logger
 from handlers.mt5_handler import Mt5Handler
 from handlers.mt5_handler import Mt5Setting
+from datetime import datetime
 
 SEPARATOR_NUMBER_STRING = '752'
 BASE_CONTROLLER_URL = 'http://127.0.0.1:8000/'
@@ -15,7 +16,11 @@ BASE_CONTROLLER_URL = 'http://127.0.0.1:8000/'
 
 class TradingFromSignal:
     def __init__(self, mt5_setting: Mt5Setting):
-        self.logger = Logger(log_file_path=mt5_setting.log_file_path, message_prefix=mt5_setting.bot_name).get_logger()
+        now = datetime.now()
+        formatted_date = now.strftime("%Y-%m-%d_%H_%M_%S")
+        log_file_path = f'{mt5_setting.log_file_folder_path}/{mt5_setting.bot_name}/{formatted_date}.log'
+        self.logger = Logger(log_file_path=log_file_path,
+                             message_prefix=mt5_setting.bot_name).get_logger()
 
         self.mt5_handler = Mt5Handler(mt5, self.logger, mt5_setting)
         self.mt5_setting = mt5_setting
