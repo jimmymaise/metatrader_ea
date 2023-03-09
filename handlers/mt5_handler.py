@@ -110,7 +110,7 @@ class Mt5Handler:
             self.logger.error(f'\t\t[Error]: {self.mt5.last_error()}')
 
         elif result.comment not in ['Request executed'] and result.comment not in request['comment']:
-            self.logger.warn(f'\t\t[Result Comment]: {result.comment}')
+            self.logger.warning(f'\t\t[Result Comment]: {result.comment}')
 
         else:
             self.logger.info(f'\t[OK]: {result.comment}')
