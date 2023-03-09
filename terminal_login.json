@@ -8,18 +8,18 @@
     "log_file_folder_path": "C:/mt5_terminal/test_mt5",
     "source": "zulu",
     "master_trader_id": "404656",
-    "bot_name": "Exness test"
+    "bot_name": "Exness_Demo_test"
   },
   {
-    "server": "YouGoTrade-Server",
-    "login_id": 947526,
-    "password": "w3bfkhdq",
+    "server": "MetaQuotes-Demo",
+    "login_id": 67218993,
+    "password": "vkihcw2b",
     "setup_path": "C:/mt5_terminal/ter2/terminal64.exe",
-    "symbol_postfix": "_",
+    "symbol_postfix": "",
     "log_file_folder_path": "C:/mt5_terminal/test_mt5",
     "source": "zulu",
     "master_trader_id": "424174",
-    "bot_name": "YouTrade test"
+    "bot_name": "MetaQ_Demo_test1"
   },
   {
     "server": "MetaQuotes-Demo",
@@ -30,6 +30,6 @@
     "log_file_folder_path": "C:/repos/test_mt5",
     "source": "zulu",
     "master_trader_id": "417345",
-    "bot_name": "MetaQ test"
+    "bot_name": "MetaQ_Demo_test2"
   }
 ]
