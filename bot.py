@@ -51,7 +51,7 @@ class TradingFromSignal:
 
         for signal in signals:
             signal['magic_numbers'] = int(
-                f'{magic_number_prefix}{signal["signal_id"]}')
+                f'{magic_number_prefix}{signal["external_signal_id"]}')
             magic_numbers_from_signals.append(signal['magic_numbers'])
 
         open_copied_positions_dict = {position.magic: position for position in
