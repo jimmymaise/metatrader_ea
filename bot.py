@@ -3,6 +3,7 @@ import json
 import time
 import requests
 import MetaTrader5 as mt5
+import os
 from multiprocessing import Process
 
 from handlers.logger import Logger
@@ -11,7 +12,7 @@ from handlers.mt5_handler import Mt5Setting
 from datetime import datetime
 
 SEPARATOR_NUMBER_STRING = '752'
-BASE_CONTROLLER_URL = 'http://127.0.0.1:8000/'
+BASE_CONTROLLER_URL = os.getenv('BASE_CONTROLLER_URL', 'http://127.0.0.1:8000/')
 
 
 class TradingFromSignal:
