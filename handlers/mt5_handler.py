@@ -9,20 +9,23 @@ class Mt5Setting:
     password: str
     setup_path: str
     symbol_postfix: str
-    log_file_folder_path: str
     master_trader_id: str
     source: str
     bot_name: str
+    type_filling:str
 
 
 class Mt5Handler:
     def __init__(self, mt5, logger, mt5_setting: Mt5Setting = None, ea_name=None):
         self.mt5 = mt5
+        self.filling_type= mt5.ORDER_FILLING_IOC
         if mt5_setting:
             setup = mt5.initialize(login=mt5_setting.login_id,
                                    server=mt5_setting.server,
                                    password=mt5_setting.password,
                                    path=mt5_setting.setup_path)
+            self.type_filling = getattr(mt5,mt5_setting.type_filling)
+
 
         else:
             setup = mt5.initialize()
@@ -50,7 +53,9 @@ class Mt5Handler:
             'volume': position.volume,
             'position': position.ticket,
             'magic': position.magic,
-            'comment': f'Made by {self.ea_name}'
+            'comment': f'Made by {self.ea_name}',
+            'type_filling': self.type_filling
+
         }
         return self.send_order_request(request)
 
@@ -70,7 +75,9 @@ class Mt5Handler:
             'sl': stop_loss,
             'tp': take_profit,
             'magic': magic_number,
-            'comment': f'Made by {self.ea_name}'
+            'comment': f'Made by {self.ea_name}',
+            'type_filling': self.type_filling
+
         }
         return self.send_order_request(request)
 

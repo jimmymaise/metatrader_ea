@@ -1,0 +1,9 @@
+ poetry run pyinstaller  -c  ea_bot_exe_build.py --onefile --name ea_bot --hiddenimport=numpy.core
+ copy terminal_login.json ./dist/terminal_login.json
+
+
+
+ taskkill /F /IM test_3.exe
+
+
+ .\dist\test_3.exe

@@ -1,0 +1,39 @@
+{
+  "base_controller_url": "http://20.245.53.22:8000/",
+  "log_folder_path": "C:/mt5_terminal/test_mt5",
+  "terminals": [
+    {
+      "server": "Exness-MT5Trial7",
+      "login_id": 78743301,
+      "password": "Duyet@1234",
+      "setup_path": "C:/mt5_terminal/ter1/terminal64.exe",
+      "symbol_postfix": "m",
+      "source": "zulu",
+      "master_trader_id": "418717",
+      "bot_name": "Exness_Demo_test",
+      "type_filling": "ORDER_FILLING_IOC"
+    },
+    {
+      "server": "MetaQuotes-Demo",
+      "login_id": 67218993,
+      "password": "vkihcw2b",
+      "setup_path": "C:/mt5_terminal/ter2/terminal64.exe",
+      "symbol_postfix": "",
+      "source": "zulu",
+      "master_trader_id": "424174",
+      "bot_name": "MetaQ_Demo_test1",
+      "type_filling": "ORDER_FILLING_IOC"
+    },
+    {
+      "server": "MetaQuotes-Demo",
+      "login_id": 5011067435,
+      "password": "8mycxiyy",
+      "setup_path": "C:/mt5_terminal/ter3/terminal64.exe",
+      "symbol_postfix": "",
+      "source": "zulu",
+      "master_trader_id": "417345",
+      "bot_name": "MetaQ_Demo_test2",
+      "type_filling": "ORDER_FILLING_IOC"
+    }
+  ]
+}
