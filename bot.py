@@ -168,7 +168,7 @@ class TradingFromSignal:
 
                 self.logger.info(f"\nGet signals {signals_from_api}\n")
                 self.process_signals_from_master_trader(
-                    master_trader_id, signals_from_api[0:]
+                    master_trader_id, signals_from_api
                 )
 
                 self.logger.info(f"Bot info {self.bot_info}")

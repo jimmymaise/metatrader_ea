@@ -9,6 +9,7 @@
       "setup_path": "C:/mt5_terminal/ter1/terminal64.exe",
       "symbol_postfix": "m",
       "source": "zulu",
+      "copied_volume_cofficient": 1,
       "master_trader_id": "418717",
       "bot_name": "Exness_Demo_test",
       "type_filling": "ORDER_FILLING_IOC"
@@ -21,6 +22,7 @@
       "symbol_postfix": "",
       "source": "zulu",
       "master_trader_id": "424174",
+      "copied_volume_cofficient": 1,
       "bot_name": "MetaQ_Demo_test1",
       "type_filling": "ORDER_FILLING_IOC"
     },
@@ -32,6 +34,7 @@
       "symbol_postfix": "",
       "source": "zulu",
       "master_trader_id": "417345",
+      "copied_volume_cofficient": 1,
       "bot_name": "MetaQ_Demo_test2",
       "type_filling": "ORDER_FILLING_IOC"
     }

@@ -8,6 +8,7 @@ class Mt5Setting:
     login_id: int
     password: str
     setup_path: str
+    copied_volume_cofficient:float
     symbol_postfix: str
     master_trader_id: str
     source: str
@@ -25,6 +26,7 @@ class Mt5Handler:
                                    password=mt5_setting.password,
                                    path=mt5_setting.setup_path)
             self.type_filling = getattr(mt5,mt5_setting.type_filling)
+            self.copied_volume_cofficient = mt5_setting.copied_volume_cofficient or 1
 
 
         else:
@@ -38,6 +40,24 @@ class Mt5Handler:
 
         self.logger = logger
         self.ea_name = ea_name or 'Python EA'
+    
+    
+    def _get_volume_with_copied_volume_cofficient(self,volume):
+        return max(round(volume*self.copied_volume_cofficient,2), 0.01)
+
+        
+    def _validate_result(self,request, result):
+
+        if not result:
+            self.logger.error(f'\t\t[Error]: {self.mt5.last_error()}')
+
+        elif result.comment not in ['Request executed','Request executed partially'] and result.comment not in request['comment']:
+            self.logger.warning(f'\t\t[Result Comment]: {result.comment}')
+
+        else:
+            self.logger.info(f'\t[OK]: {result.comment}')
+        result.comment not in ['Request executed','Request executed partially'] and result.comment not in request['comment']
+
 
     def close_trade_by_position(self, position):
         # Determine the order type to use when closing a position
@@ -69,7 +89,7 @@ class Mt5Handler:
         request = {
             'action': self.mt5.TRADE_ACTION_DEAL,
             'symbol': symbol,
-            'volume': volume,
+            'volume': self._get_volume_with_copied_volume_cofficient(volume),
             'type': order_type,
             'price': self.get_market_price_by_order_type_symbol(order_type, symbol),
             'sl': stop_loss,
@@ -112,16 +132,7 @@ class Mt5Handler:
     def send_order_request(self, request):
         self.logger.info(f'\n\t[Sending request]: {request}')
         result = self.mt5.order_send(request)
-
-        if not result:
-            self.logger.error(f'\t\t[Error]: {self.mt5.last_error()}')
-
-        elif result.comment not in ['Request executed'] and result.comment not in request['comment']:
-            self.logger.warning(f'\t\t[Result Comment]: {result.comment}')
-
-        else:
-            self.logger.info(f'\t[OK]: {result.comment}')
-
+        self._validate_result(request, result)
         return result
 
     def get_history_deal_within_x_days(self, x_days):
