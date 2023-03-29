@@ -3,7 +3,7 @@ import multiprocessing
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
-    print('EA Python bot 1.0\n')
+    print('EA Python bot 1.0 \n')
     input("Please enter any key to start\n");
 
     while True:

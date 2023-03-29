@@ -19,13 +19,12 @@ class Mt5Setting:
 class Mt5Handler:
     def __init__(self, mt5, logger, mt5_setting: Mt5Setting = None, ea_name=None):
         self.mt5 = mt5
-        self.filling_type= mt5.ORDER_FILLING_IOC
         if mt5_setting:
             setup = mt5.initialize(login=mt5_setting.login_id,
                                    server=mt5_setting.server,
                                    password=mt5_setting.password,
                                    path=mt5_setting.setup_path)
-            self.type_filling = getattr(mt5,mt5_setting.type_filling)
+            self.type_filling = getattr(mt5,mt5_setting.type_filling, mt5.ORDER_FILLING_FOK)
             self.copied_volume_cofficient = mt5_setting.copied_volume_cofficient or 1
 
 
@@ -40,10 +39,28 @@ class Mt5Handler:
 
         self.logger = logger
         self.ea_name = ea_name or 'Python EA'
+
+    def _get_filling_type_by_volume_symbol(self, symbol):
+        allow_filling_type  =  self.mt5.symbol_info(symbol).filling_mode
+
+        if allow_filling_type == 3:
+            return self.type_filling
+        
+        return allow_filling_type
     
     
-    def _get_volume_with_copied_volume_cofficient(self,volume):
-        return max(round(volume*self.copied_volume_cofficient,2), 0.01)
+    def _get_volume_with_copied_volume_cofficient(self,volume,symbol):
+        calculated_volume = round(volume*self.copied_volume_cofficient,2)
+        symbol_info =  self.mt5.symbol_info(symbol)
+
+        if calculated_volume >symbol_info.volume_max:
+            return symbol_info.max
+        
+        elif calculated_volume < symbol_info.volume_min:
+            return symbol_info.volume_min
+        
+        else:
+            return calculated_volume
 
         
     def _validate_result(self,request, result):
@@ -74,7 +91,7 @@ class Mt5Handler:
             'position': position.ticket,
             'magic': position.magic,
             'comment': f'Made by {self.ea_name}',
-            'type_filling': self.type_filling
+            'type_filling': self._get_filling_type_by_volume_symbol(position.symbol)
 
         }
         return self.send_order_request(request)
@@ -89,15 +106,14 @@ class Mt5Handler:
         request = {
             'action': self.mt5.TRADE_ACTION_DEAL,
             'symbol': symbol,
-            'volume': self._get_volume_with_copied_volume_cofficient(volume),
+            'volume': self._get_volume_with_copied_volume_cofficient(volume,symbol),
             'type': order_type,
             'price': self.get_market_price_by_order_type_symbol(order_type, symbol),
             'sl': stop_loss,
             'tp': take_profit,
             'magic': magic_number,
             'comment': f'Made by {self.ea_name}',
-            'type_filling': self.type_filling
-
+            'type_filling': self._get_filling_type_by_volume_symbol(symbol)
         }
         return self.send_order_request(request)
 
@@ -115,6 +131,9 @@ class Mt5Handler:
 
         else:
             raise Exception(f'Invalid code: {mt5_order_type_code}')
+    
+    def get_min_max_volume_by_order_type_symbol(self, mt5_order_type_code, symbol):
+        symbol_info_tick = self.mt5(symbol)
 
     def update_trade(self, position_ticket, symbol, stop_loss, take_profit, magic_number):
         request = {
