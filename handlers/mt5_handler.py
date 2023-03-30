@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from dataclasses import dataclass
+from handlers.constant import SymbolFillingModeEnum, Common
 
 
 @dataclass
@@ -8,120 +9,141 @@ class Mt5Setting:
     login_id: int
     password: str
     setup_path: str
-    copied_volume_cofficient:float
+    copied_volume_cofficient: float
     symbol_postfix: str
     master_trader_id: str
     source: str
     bot_name: str
-    type_filling:str
+    type_filling: str
 
 
 class Mt5Handler:
     def __init__(self, mt5, logger, mt5_setting: Mt5Setting = None, ea_name=None):
         self.mt5 = mt5
         if mt5_setting:
-            setup = mt5.initialize(login=mt5_setting.login_id,
-                                   server=mt5_setting.server,
-                                   password=mt5_setting.password,
-                                   path=mt5_setting.setup_path)
-            self.type_filling = getattr(mt5,mt5_setting.type_filling, mt5.ORDER_FILLING_FOK)
+            setup = mt5.initialize(
+                login=mt5_setting.login_id,
+                server=mt5_setting.server,
+                password=mt5_setting.password,
+                path=mt5_setting.setup_path,
+            )
+            self.prefered_order_type_filling_name = mt5_setting.type_filling
             self.copied_volume_cofficient = mt5_setting.copied_volume_cofficient or 1
-
 
         else:
             setup = mt5.initialize()
 
         if not setup:
-            raise Exception(
-                f'{self.mt5.last_error()} with setting {mt5_setting}')
+            raise Exception(f"{self.mt5.last_error()} with setting {mt5_setting}")
 
         print(mt5.terminal_info())
 
         self.logger = logger
-        self.ea_name = ea_name or 'Python EA'
+        self.ea_name = ea_name or "Python EA"
 
     def _get_filling_type_by_volume_symbol(self, symbol):
-        allow_filling_type  =  self.mt5.symbol_info(symbol).filling_mode
+        symbol_filling_type_name = SymbolFillingModeEnum(
+            self.mt5.symbol_info(symbol).filling_mode
+        ).name
 
-        if allow_filling_type == 3:
-            return self.type_filling
-        
-        return allow_filling_type
-    
-    
-    def _get_volume_with_copied_volume_cofficient(self,volume,symbol):
-        calculated_volume = round(volume*self.copied_volume_cofficient,2)
-        symbol_info =  self.mt5.symbol_info(symbol)
+        allowed_order_filling_types = Common.MAPPING_FILLING_MODE_SYBOL_TO_ORDER[
+            symbol_filling_type_name
+        ]
+        if self.prefered_order_type_filling_name in allowed_order_filling_types:
+            return getattr(self.mt5, self.prefered_order_type_filling_name)
 
-        if calculated_volume >symbol_info.volume_max:
+        else:
+            self.logger.info(
+                f"Cannot use prefered order filling type: {self.prefered_order_type_filling_name} as it is not allowed"
+                f".Trying to use allowed filling type {allowed_order_filling_types[0]}"
+            )
+            return getattr(self.mt5, allowed_order_filling_types[0])
+
+    def _get_volume_with_copied_volume_cofficient(self, volume, symbol):
+        calculated_volume = round(volume * self.copied_volume_cofficient, 2)
+        symbol_info = self.mt5.symbol_info(symbol)
+
+        if calculated_volume > symbol_info.volume_max:
             return symbol_info.max
-        
+
         elif calculated_volume < symbol_info.volume_min:
             return symbol_info.volume_min
-        
+
         else:
             return calculated_volume
 
-        
-    def _validate_result(self,request, result):
-
+    def _validate_result(self, request, result):
         if not result:
-            self.logger.error(f'\t\t[Error]: {self.mt5.last_error()}')
+            self.logger.error(f"\t\t[Error]: {self.mt5.last_error()}")
 
-        elif result.comment not in ['Request executed','Request executed partially'] and result.comment not in request['comment']:
-            self.logger.warning(f'\t\t[Result Comment]: {result.comment}')
+        elif (
+            result.comment not in Common.SUCCESS_REQUEST_COMMENTS
+            and result.comment not in request["comment"]
+        ):
+            self.logger.warning(
+                f"\t\t[Probally Error] Request comment is {result.comment}"
+            )
 
         else:
-            self.logger.info(f'\t[OK]: {result.comment}')
-        result.comment not in ['Request executed','Request executed partially'] and result.comment not in request['comment']
-
+            self.logger.info(f"\t[OK]: {result.comment}")
 
     def close_trade_by_position(self, position):
         # Determine the order type to use when closing a position
         # If the position is a buy, use sell; otherwise, use buy
-        closing_order_type = self.mt5.ORDER_TYPE_SELL \
-            if position.type == self.mt5.ORDER_TYPE_BUY else self.mt5.ORDER_TYPE_BUY
+        closing_order_type = (
+            self.mt5.ORDER_TYPE_SELL
+            if position.type == self.mt5.ORDER_TYPE_BUY
+            else self.mt5.ORDER_TYPE_BUY
+        )
 
         request = {
-            'action': self.mt5.TRADE_ACTION_DEAL,
-            'type': closing_order_type,
-            'price': self.get_market_price_by_order_type_symbol(closing_order_type, position.symbol),
-            'symbol': position.symbol,
-            'volume': position.volume,
-            'position': position.ticket,
-            'magic': position.magic,
-            'comment': f'Made by {self.ea_name}',
-            'type_filling': self._get_filling_type_by_volume_symbol(position.symbol)
-
+            "action": self.mt5.TRADE_ACTION_DEAL,
+            "type": closing_order_type,
+            "price": self.get_market_price_by_order_type_symbol(
+                closing_order_type, position.symbol
+            ),
+            "symbol": position.symbol,
+            "volume": position.volume,
+            "position": position.ticket,
+            "magic": position.magic,
+            "comment": f"Made by {self.ea_name}",
+            "type_filling": self._get_filling_type_by_volume_symbol(position.symbol),
         }
         return self.send_order_request(request)
 
-    def open_trade(self, symbol, volume, order_type, stop_loss, take_profit, magic_number):
+    def open_trade(
+        self, symbol, volume, order_type, stop_loss, take_profit, magic_number
+    ):
         selected = self.mt5.symbol_select(symbol, True)
 
         if not selected:
             raise Exception(
-                f"Exception: Failed to select {symbol}, error code ={self.mt5.last_error()}")
+                f"Exception: Failed to select {symbol}, error code ={self.mt5.last_error()}"
+            )
 
         request = {
-            'action': self.mt5.TRADE_ACTION_DEAL,
-            'symbol': symbol,
-            'volume': self._get_volume_with_copied_volume_cofficient(volume,symbol),
-            'type': order_type,
-            'price': self.get_market_price_by_order_type_symbol(order_type, symbol),
-            'sl': stop_loss,
-            'tp': take_profit,
-            'magic': magic_number,
-            'comment': f'Made by {self.ea_name}',
-            'type_filling': self._get_filling_type_by_volume_symbol(symbol)
+            "action": self.mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": self._get_volume_with_copied_volume_cofficient(volume, symbol),
+            "type": order_type,
+            "price": self.get_market_price_by_order_type_symbol(order_type, symbol),
+            "sl": stop_loss,
+            "tp": take_profit,
+            "magic": magic_number,
+            "comment": f"Made by {self.ea_name}",
+            "type_filling": self._get_filling_type_by_volume_symbol(symbol),
         }
-        return self.send_order_request(request)
+        result = self.send_order_request(request)
+        if order_ticket := getattr(result, "order", None):
+            self.logger.info(
+                f"Created order with ticket {order_ticket} (magic number {magic_number})"
+            )
 
     def get_market_price_by_order_type_symbol(self, mt5_order_type_code, symbol):
         symbol_info_tick = self.mt5.symbol_info_tick(symbol)
 
         if not symbol_info_tick:
-            raise Exception('Cannot get tick. Perhaps the market is closed')
+            raise Exception("Cannot get tick. Perhaps the market is closed")
 
         if self.mt5.ORDER_TYPE_SELL == mt5_order_type_code:
             return self.mt5.symbol_info_tick(symbol).bid
@@ -130,26 +152,27 @@ class Mt5Handler:
             return self.mt5.symbol_info_tick(symbol).ask
 
         else:
-            raise Exception(f'Invalid code: {mt5_order_type_code}')
-    
+            raise Exception(f"Invalid code: {mt5_order_type_code}")
+
     def get_min_max_volume_by_order_type_symbol(self, mt5_order_type_code, symbol):
         symbol_info_tick = self.mt5(symbol)
 
-    def update_trade(self, position_ticket, symbol, stop_loss, take_profit, magic_number):
+    def update_trade(
+        self, position_ticket, symbol, stop_loss, take_profit, magic_number
+    ):
         request = {
-            'action': self.mt5.TRADE_ACTION_SLTP,
-            'position': position_ticket,
-            'symbol': symbol,
-            'sl': stop_loss,
-            'tp': take_profit,
-            'magic': magic_number,
-            'comment': f'Made by {self.ea_name}'
-
+            "action": self.mt5.TRADE_ACTION_SLTP,
+            "position": position_ticket,
+            "symbol": symbol,
+            "sl": stop_loss,
+            "tp": take_profit,
+            "magic": magic_number,
+            "comment": f"Made by {self.ea_name}",
         }
         return self.send_order_request(request)
 
     def send_order_request(self, request):
-        self.logger.info(f'\n\t[Sending request]: {request}')
+        self.logger.info(f"\n\t[Sending request]: {request}")
         result = self.mt5.order_send(request)
         self._validate_result(request, result)
         return result

@@ -34,7 +34,7 @@ class TradingFromSignal:
         self.logger.error(mt5.last_error())
         self.bot_info = (
             f"{mt5_setting.login_id}@{mt5_setting.server}"
-            f"(copy:{mt5_setting.source}/{mt5_setting.master_trader_id})"
+            f"(copy:{mt5_setting.source}/{mt5_setting.master_trader_id} with copied_volume_cofficient {mt5_setting.copied_volume_cofficient})"
         )
         self.bot_name = mt5_setting.bot_name
         self.bot_config = bot_config
@@ -93,6 +93,7 @@ class TradingFromSignal:
         }
 
         for signal in signals:
+            signal_info = f"{master_trader_id}:{signal['external_signal_id']}"
             signal_magic_number = signal["magic_numbers"]
 
             is_this_signal_created_but_closed = closed_copied_deals_dict.get(
@@ -101,8 +102,11 @@ class TradingFromSignal:
             is_this_signal_created = open_copied_positions_dict.get(signal_magic_number)
 
             if is_this_signal_created_but_closed:
+                closed_deal = closed_copied_deals_dict.get(signal_magic_number)
                 self.logger.warning(
-                    f"Signal {signal_magic_number} will be IGNORED as it belongs to closed deal"
+                    f"Signal {signal_info} will be IGNORED as it belongs to closed deal"
+                    f"(magic number {signal_magic_number}, ticket {closed_deal.ticket},"
+                    f" position {closed_deal.position_id}, time {datetime.fromtimestamp(closed_deal.time)})"
                 )
                 continue
 
@@ -111,18 +115,23 @@ class TradingFromSignal:
                 exist_open_position = open_copied_positions_dict.get(
                     signal_magic_number
                 )
-                is_up_to_date = (
-                    exist_open_position.sl == signal["stop_loss"]
-                    and exist_open_position.tp == signal["take_profit"]
+                is_up_to_date = round(exist_open_position.sl, 5) == round(
+                    signal["stop_loss"], 5
+                ) and round(exist_open_position.tp, 5) == round(
+                    signal["take_profit"], 5
                 )
                 if is_up_to_date:
                     self.logger.warning(
-                        f"Signal {signal_magic_number} will be IGNORED as it is created with same information"
+                        f"Signal {signal_info} will be IGNORED as it is created with same information with the ticket {exist_open_position.ticket}"
+                        f"(magic number {signal_magic_number})"
                     )
                     continue
 
                 self.logger.info(
-                    f"Signal {signal_magic_number} will UPDATE the position {exist_open_position.ticket}"
+                    f"Signal {signal_info} will UPDATE the position {exist_open_position.ticket}."
+                    f"(magic number {signal_magic_number})\n"
+                    f"New stop lost/take profit: {signal['stop_loss']}/{signal['take_profit']}\n"
+                    f"Old stop lost/take profit: {exist_open_position.sl}/{exist_open_position.tp}"
                 )
                 self.mt5_handler.update_trade(
                     position_ticket=exist_open_position.ticket,
@@ -166,7 +175,9 @@ class TradingFromSignal:
                 self.logger.info("-------------START---------------")
                 self.logger.info(f"Bot info {self.bot_info}")
 
-                self.logger.info(f"\nGet signals {signals_from_api}\n")
+                self.logger.info(
+                    f"\nGet {len(signals_from_api)} signal(s):\n{signals_from_api}\n"
+                )
                 self.process_signals_from_master_trader(
                     master_trader_id, signals_from_api
                 )
@@ -181,7 +192,7 @@ class TradingFromSignal:
             self.mt5_handler.shutdown()
 
 
-def worker(mt5_setting:Mt5Setting, bot_config:BotConfig):
+def worker(mt5_setting: Mt5Setting, bot_config: BotConfig):
     bot = TradingFromSignal(mt5_setting, bot_config)
     bot.run()
 
@@ -190,7 +201,7 @@ def bot_runner():
     with open("./terminal_login.json") as content:
         config = json.load(content)
 
-    bot_config = from_dict(data_class=BotConfig,data=config)
+    bot_config = from_dict(data_class=BotConfig, data=config)
     terminals = config["terminals"]
     procs = []
     mt5_settings = [Mt5Setting(**terminal) for terminal in terminals]
