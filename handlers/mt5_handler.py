@@ -134,10 +134,14 @@ class Mt5Handler:
             "type_filling": self._get_filling_type_by_volume_symbol(symbol),
         }
         result = self.send_order_request(request)
-        if order_ticket := getattr(result, "order", None):
+        if result and (order_ticket := getattr(result, "order", None)):
             self.logger.info(
                 f"Created order with ticket {order_ticket} (magic number {magic_number})"
             )
+        else:
+            self.logger.error(
+                f"[Error] Cannot create order")
+            
 
     def get_market_price_by_order_type_symbol(self, mt5_order_type_code, symbol):
         symbol_info_tick = self.mt5.symbol_info_tick(symbol)
