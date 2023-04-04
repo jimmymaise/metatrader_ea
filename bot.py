@@ -26,14 +26,15 @@ class TradingFromSignal:
             f"{bot_config.log_folder_path}/{mt5_setting.bot_name}/{formatted_date}.log"
         )
         self.logger = Logger(
-            log_file_path=log_file_path, message_prefix=mt5_setting.bot_name
+            log_file_path=log_file_path, message_prefix=f'{mt5_setting.login_id}::{mt5_setting.bot_name}'
         ).get_logger()
 
         self.mt5_handler = Mt5Handler(mt5, self.logger, mt5_setting)
         self.mt5_setting = mt5_setting
         self.logger.error(mt5.last_error())
+        self.mt5_handler.get_ea_login()
         self.bot_info = (
-            f"{mt5_setting.login_id}@{mt5_setting.server}"
+            f"{self.mt5_handler.get_ea_login()}"
             f"(copy:{mt5_setting.source}/{mt5_setting.master_trader_id} with copied_volume_cofficient {mt5_setting.copied_volume_cofficient})"
         )
         self.bot_name = mt5_setting.bot_name
@@ -182,8 +183,9 @@ class TradingFromSignal:
                     master_trader_id, signals_from_api
                 )
 
-                self.logger.info(f"Bot info {self.bot_info}")
+                self.logger.info(f"\nDetail bot info:\n{self.mt5_handler.get_bot_info()}")
                 self.logger.info("--------------END----------------")
+                
 
                 time.sleep(30)
         finally:

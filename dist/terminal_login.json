@@ -9,8 +9,8 @@
       "setup_path": "C:/mt5_terminal/ter1/terminal64.exe",
       "symbol_postfix": "m",
       "source": "zulu",
-      "copied_volume_cofficient": 1,
       "master_trader_id": "418717",
+      "copied_volume_cofficient": 1,
       "bot_name": "Exness_Demo_test",
       "type_filling": "ORDER_FILLING_FOK"
     },

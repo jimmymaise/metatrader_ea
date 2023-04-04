@@ -18,29 +18,41 @@ class Mt5Setting:
 
 
 class Mt5Handler:
-    def __init__(self, mt5, logger, mt5_setting: Mt5Setting = None, ea_name=None):
+    def __init__(self, mt5, logger, mt5_setting: Mt5Setting):
         self.mt5 = mt5
-        if mt5_setting:
-            setup = mt5.initialize(
-                login=mt5_setting.login_id,
-                server=mt5_setting.server,
-                password=mt5_setting.password,
-                path=mt5_setting.setup_path,
-            )
-            self.prefered_order_type_filling_name = mt5_setting.type_filling
-            self.copied_volume_cofficient = mt5_setting.copied_volume_cofficient or 1
+        setup = mt5.initialize(
+            login=mt5_setting.login_id,
+            server=mt5_setting.server,
+            password=mt5_setting.password,
+            path=mt5_setting.setup_path,
+        )
+        self.logger = logger
+        self.prefered_order_type_filling_name = mt5_setting.type_filling
+        self.copied_volume_cofficient = mt5_setting.copied_volume_cofficient or 1
 
-        else:
-            setup = mt5.initialize()
 
         if not setup:
             raise Exception(f"{self.mt5.last_error()} with setting {mt5_setting}")
+        self.logger.info(self.mt5.terminal_info())
+        self.bot_info= self.get_bot_info()
 
-        print(mt5.terminal_info())
 
-        self.logger = logger
-        self.ea_name = ea_name or "Python EA"
+        self.ea_name = mt5_setting.bot_name or "Python EA"
 
+    def get_bot_info(self):
+        terminal_info = self.mt5.terminal_info()
+        account_info = self.mt5.account_info()
+        return {
+            "exe_path": terminal_info.path,
+            "data_path": terminal_info.data_path,
+            "account_name": account_info.name,
+            "login":account_info.login,
+            "server":account_info.server,
+            "prefered_order_type_filling_name":self.prefered_order_type_filling_name,
+            "copied_volume_cofficient": self.copied_volume_cofficient
+        }
+    
+    
     def _get_filling_type_by_volume_symbol(self, symbol):
         symbol_filling_type_name = SymbolFillingModeEnum(
             self.mt5.symbol_info(symbol).filling_mode
@@ -74,15 +86,16 @@ class Mt5Handler:
 
     def _validate_result(self, request, result):
         if not result:
-            self.logger.error(f"\t\t[Error]: {self.mt5.last_error()}")
+            self.logger.error(f"\t\t[Error]: {self.mt5.last_error()}\nBot info: {self.get_bot_info()}")
+            
 
         elif (
             result.comment not in Common.SUCCESS_REQUEST_COMMENTS
             and result.comment not in request["comment"]
         ):
             self.logger.warning(
-                f"\t\t[Probally Error] Request comment is {result.comment}"
-            )
+                f"\t\t[Probally Error] Request comment is {result.comment}\nBot info: {self.get_bot_info()}")
+            
 
         else:
             self.logger.info(f"\t[OK]: {result.comment}")
@@ -106,7 +119,7 @@ class Mt5Handler:
             "volume": position.volume,
             "position": position.ticket,
             "magic": position.magic,
-            "comment": f"Made by {self.ea_name}",
+            "comment": self.get_ea_comment(),
             "type_filling": self._get_filling_type_by_volume_symbol(position.symbol),
         }
         return self.send_order_request(request)
@@ -130,7 +143,7 @@ class Mt5Handler:
             "sl": stop_loss,
             "tp": take_profit,
             "magic": magic_number,
-            "comment": f"Made by {self.ea_name}",
+            "comment": self.get_ea_comment(),
             "type_filling": self._get_filling_type_by_volume_symbol(symbol),
         }
         result = self.send_order_request(request)
@@ -140,7 +153,7 @@ class Mt5Handler:
             )
         else:
             self.logger.error(
-                f"[Error] Cannot create order")
+                f"[Error] Cannot create order \nBot info: {self.get_bot_info()}")
             
 
     def get_market_price_by_order_type_symbol(self, mt5_order_type_code, symbol):
@@ -157,9 +170,16 @@ class Mt5Handler:
 
         else:
             raise Exception(f"Invalid code: {mt5_order_type_code}")
+    
+    def get_ea_login(self):
+        account_info = self.mt5.account_info()
+        return f'{account_info.login}@{account_info.server}({account_info.name})'
+    
+    
+    def get_ea_comment(self):
+        return f"EA {self.mt5.account_info().login}"
+    
 
-    def get_min_max_volume_by_order_type_symbol(self, mt5_order_type_code, symbol):
-        symbol_info_tick = self.mt5(symbol)
 
     def update_trade(
         self, position_ticket, symbol, stop_loss, take_profit, magic_number
@@ -171,12 +191,12 @@ class Mt5Handler:
             "sl": stop_loss,
             "tp": take_profit,
             "magic": magic_number,
-            "comment": f"Made by {self.ea_name}",
+            "comment": self.get_ea_comment(),
         }
         return self.send_order_request(request)
 
     def send_order_request(self, request):
-        self.logger.info(f"\n\t[Sending request]: {request}")
+        self.logger.info(f"\n\t[Sending request for account {self.get_ea_login()}]\n")
         result = self.mt5.order_send(request)
         self._validate_result(request, result)
         return result
@@ -192,4 +212,5 @@ class Mt5Handler:
         return self.mt5.positions_get()
 
     def shutdown(self):
+        self.logger.info(f"{self.get_bot_info()}")
         self.mt5.shutdown()
