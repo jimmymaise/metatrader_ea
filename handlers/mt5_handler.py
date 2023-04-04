@@ -43,7 +43,7 @@ class Mt5Handler:
         terminal_info = self.mt5.terminal_info()
         account_info = self.mt5.account_info()
         return {
-            "exe_path": terminal_info.path,
+            "setup_path": terminal_info.path,
             "data_path": terminal_info.data_path,
             "account_name": account_info.name,
             "login":account_info.login,
