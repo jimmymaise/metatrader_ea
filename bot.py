@@ -222,11 +222,11 @@ class TradingFromSignal:
                 )
             elif not self.valid_signal_for_copied(signal):
                 self.logger.error(
-                    f"Signal {signal_magic_number} will be IGNORE instead of Create as open time or price is not sutable with condition")
+                    f"Signal {signal_info} will be IGNORE instead of Create as open time or price is not sutable with condition")
 
             else:
                 self.logger.info(
-                    f"Signal {signal_magic_number} will CREATE new trade with {signal.price_diff=} pips, signal.time_diff {str(signal.time_diff)}")
+                    f"Signal {signal_info} will CREATE new trade with {signal.price_diff=} pips, signal.time_diff {str(signal.time_diff)}")
 
                 order_type = (
                     mt5.ORDER_TYPE_BUY
