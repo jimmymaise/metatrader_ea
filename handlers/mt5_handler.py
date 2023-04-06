@@ -1,8 +1,7 @@
 import pandas as pd
-from datetime import datetime, timedelta
+import datetime
 from dataclasses import dataclass
 from handlers.constant import SymbolFillingModeEnum, Common
-
 
 @dataclass
 class Mt5Setting:
@@ -16,7 +15,6 @@ class Mt5Setting:
     source: str
     bot_name: str
     type_filling: str
-    exist_order_copy:str
     max_allowed_order_age_to_copy_in_minutes:int
     max_allowed_price_difference_in_pips: float
 
@@ -32,9 +30,10 @@ class Mt5Handler:
             path=mt5_setting.setup_path,
         )
         self.logger = logger
+        self.mt5_setting = mt5_setting
         self.prefered_order_type_filling_name = mt5_setting.type_filling
-        self.copied_volume_cofficient = mt5_setting.copied_volume_cofficient or 1
-        self.max_allowed_order_age_to_copy_in_minutes= self.max_allowed_order_age_to_copy_in_minutes
+        self.copied_volume_coefficient = mt5_setting.copied_volume_coefficient or 1
+        self.max_allowed_order_age_to_copy_in_minutes= mt5_setting.max_allowed_order_age_to_copy_in_minutes
 
 
         if not setup:
@@ -47,7 +46,7 @@ class Mt5Handler:
     
 
     def convert_to_broker_symbol_format(self, api_signal_symbol):
-        return f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}"
+        return f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}".replace("/","")
 
         
 
@@ -61,7 +60,7 @@ class Mt5Handler:
             "login":account_info.login,
             "server":account_info.server,
             "prefered_order_type_filling_name":self.prefered_order_type_filling_name,
-            "copied_volume_cofficient": self.copied_volume_cofficient
+            "copied_volume_coefficient": self.copied_volume_coefficient
         }
     
     
@@ -83,8 +82,8 @@ class Mt5Handler:
             )
             return getattr(self.mt5, allowed_order_filling_types[0])
 
-    def _get_volume_with_copied_volume_cofficient(self, volume, symbol):
-        calculated_volume = round(volume * self.copied_volume_cofficient, 2)
+    def _get_volume_with_copied_volume_coefficient(self, volume, symbol):
+        calculated_volume = round(volume * self.copied_volume_coefficient, 2)
         symbol_info = self.mt5.symbol_info(symbol)
 
         if calculated_volume > symbol_info.volume_max:
@@ -149,7 +148,7 @@ class Mt5Handler:
         request = {
             "action": self.mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
-            "volume": self._get_volume_with_copied_volume_cofficient(volume, symbol),
+            "volume": self._get_volume_with_copied_volume_coefficient(volume, symbol),
             "type": order_type,
             "price": self.get_market_price_by_order_type_symbol(order_type, symbol),
             "sl": stop_loss,
@@ -214,9 +213,9 @@ class Mt5Handler:
         return result
 
     def get_history_deal_within_x_days(self, x_days):
-        start_time = datetime.today() - timedelta(days=x_days)
+        start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=x_days)
         # as this library has with end time.  Perhaps time zone diff
-        end_time = datetime.now() + timedelta(days=2)
+        end_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=2)
 
         return self.mt5.history_deals_get(start_time, end_time)
 
@@ -226,8 +225,8 @@ class Mt5Handler:
 
     def get_server_time(self):
         symbol = self.convert_to_broker_symbol_format("EURUSD")
-        now = datetime.now()
-        ticks = self.mt5.copy_ticks_range(symbol, now - timedelta(seconds=60), now, self.mt5.COPY_TICKS_ALL)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        ticks = self.mt5.copy_ticks_range(symbol, now - datetime.timedelta(seconds=60), now, self.mt5.COPY_TICKS_ALL)
 
         if len(ticks) > 0:
             return ticks[-1][0]

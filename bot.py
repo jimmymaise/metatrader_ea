@@ -1,19 +1,18 @@
+import datetime
 import json
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from enum import Enum
 from multiprocessing import Process
-from typing import Dict, Optional
-from dateutil import parser
-from typing import Generator
+from typing import Dict, Generator, Optional
 
+import dateutil
 import MetaTrader5 as mt5
 import requests
 from dacite import from_dict
 
 from handlers.logger import Logger
 from handlers.mt5_handler import Mt5Handler, Mt5Setting
-from enum import Enum
 
 
 class TradeType(Enum):
@@ -25,7 +24,7 @@ class TradeType(Enum):
 class BotConfig:
     base_controller_url: str
     log_folder_path: str
-    separator_number_string: str = "00"
+    separator_number_string: str = "33"
 
 
 @dataclass
@@ -33,19 +32,21 @@ class TradeSignal:
     id: int
     external_signal_id: str
     symbol: str
-    trade_type: str = field(init=False)
+    type: str
     size: float
     time: str
     price_order: float
-    stop_loss: Optional[float]
-    take_profit: Optional[float]
     market_price: float
-    magic_numbers:  Optional[float]
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    magic_numbers:  Optional[float] = None
+    time_diff: Optional[float] = None
+    price_diff: Optional[float] = None
 
 
 class TradingFromSignal:
     def __init__(self, mt5_setting: Mt5Setting, bot_config: BotConfig):
-        now = datetime.now()
+        now = datetime.datetime.now()
         formatted_date = now.strftime("%Y-%m-%d_%H_%M_%S")
         log_file_path = (
             f"{bot_config.log_folder_path}/{mt5_setting.bot_name}/{formatted_date}.log"
@@ -60,57 +61,76 @@ class TradingFromSignal:
         self.mt5_handler.get_ea_login()
         self.bot_info = (
             f"{self.mt5_handler.get_ea_login()}"
-            f"(copy:{mt5_setting.source}/{mt5_setting.master_trader_id} with copied_volume_cofficient {mt5_setting.copied_volume_cofficient})"
+            f"(copy:{mt5_setting.source}/{mt5_setting.master_trader_id} with copied_volume_coefficient {mt5_setting.copied_volume_coefficient})"
         )
         self.bot_name = mt5_setting.bot_name
         self.bot_config = bot_config
         self.mt5_handler.get_server_time()
 
-    def normalize_symbol(self, raw_symbol):
-        return f"{raw_symbol.replace('/', '')}{self.mt5_setting.symbol_postfix}"
-
-    def validate_price_for_copied(self, signal: TradeSignal, symbol: str):
-        tick = self.mt5.symbol_info_tick(symbol)
-        current_price = tick.ask if signal.trade_type == TradeType.BUY else tick.bid
+    def calcluate_price_differences_in_pips(self, signal):
+        tick = self.mt5_handler.mt5.symbol_info_tick(signal.symbol)
+        current_price = tick.ask if signal.type == TradeType.BUY else tick.bid
         price_difference = abs(current_price - signal.price_order)
-        max_allowed_price_difference_in_pips = self.self.mt5_setting.max_allowed_price_difference_in_pips
-        is_price_valid_to_copy = price_difference <= max_allowed_price_difference_in_pips
-        if not is_price_valid_to_copy:
-            self.logger.error(
-                f'Price is not valid as {price_difference=},{current_price=},{signal.price_order=},{max_allowed_price_difference_in_pips=}')
-        return is_price_valid_to_copy
+        if 'JPY' in signal.symbol:
+            price_difference_in_pips = 100*price_difference
+        else:
+            price_difference_in_pips = 10_000*price_difference
+        signal.price_diff = price_difference_in_pips
+
+        return price_difference_in_pips, current_price, signal.price_order
+
+    def calculate_time_diff_between_signal_order_date_and_now(self, signal):
+        server_time = datetime.datetime.fromtimestamp(self.mt5_handler.get_server_time(
+        ), datetime.timezone.utc) if self.mt5_handler.get_server_time() else None
+
+        current_time = server_time or datetime.datetime.now(
+            datetime.timezone.utc)
+        signal_time = dateutil.parser.parse(signal.time)
+        time_difference = current_time - signal_time
+        signal.time_diff = time_difference
+        return time_difference, current_time, signal_time
 
     def validate_signal_order_date_for_copied(self, signal: TradeSignal):
-        server_time = datetime.fromtimestamp(self.mt5_handler.get_server_time(
-        )) if self.mt5_handler.get_server_time() else None
-
-        current_time = server_time or datetime.now()
-        time_difference = current_time - parser.parse(signal.time)
+        time_difference, current_time, signal_time = self.calculate_time_diff_between_signal_order_date_and_now(
+            signal)
         max_allowed_order_age_to_copy_in_minutes = self.mt5_setting.max_allowed_order_age_to_copy_in_minutes
         is_time_valid_to_copy = time_difference <= datetime.timedelta(
             minutes=max_allowed_order_age_to_copy_in_minutes)
         if not is_time_valid_to_copy:
             self.logger.error(
-                f'Price is not valid as {time_difference=},{current_time=},{signal.price_time=},{max_allowed_order_age_to_copy_in_minutes=}')
+                f'\n\tTime is not valid as:\n \t\t\t'
+                f'time_difference={str(time_difference)} ({time_difference.total_seconds() / 60} minutes),current_time={str(current_time)},signal_time={signal_time},{max_allowed_order_age_to_copy_in_minutes=}')
 
         return is_time_valid_to_copy
 
-    def valid_signal_for_copied(self, signal: TradeSignal):
-        return self.validate_price_for_copied(signal, signal.symbol) and self.validate_signal_order_date_for_copied(signal)
+    def validate_price_for_copied(self, signal: TradeSignal):
+        price_difference_in_pips, current_price, signal_price = self.calcluate_price_differences_in_pips(
+            signal)
+        max_allowed_price_difference_in_pips = self.mt5_setting.max_allowed_price_difference_in_pips
+        is_price_valid_to_copy = price_difference_in_pips <= max_allowed_price_difference_in_pips
+        if not is_price_valid_to_copy:
+            self.logger.error(
+                f'\n\tPrice is not valid as:\n \t\t\t'
+                f'{price_difference_in_pips=},{current_price=},{signal_price=},{max_allowed_price_difference_in_pips=}')
+        return is_price_valid_to_copy
 
-    def get_signal_from_api(self, master_id, source_id) -> Generator[TradeSignal]:
+    def valid_signal_for_copied(self, signal: TradeSignal):
+        return self.validate_price_for_copied(signal) and self.validate_signal_order_date_for_copied(signal)
+
+    def get_signal_from_api(self, master_id, source_id) -> list[TradeSignal]:
         headers = {"Content-Type": "application/json"}
         url = f"{self.bot_config.base_controller_url}/master_traders/{source_id}/{master_id}"
         self.logger.info(f"Calling api {url} to get info")
 
         resp = requests.get(url=url, headers=headers)
+        trade_signals = []
 
         if resp.status_code in [requests.codes.created, requests.codes.ok]:
             for signal in resp.json()["signals"]:
                 signal['symbol'] = self.mt5_handler.convert_to_broker_symbol_format(
                     signal['symbol'])
-                yield TradeSignal(signal)
-
+                trade_signals.append(TradeSignal(**signal))
+            return trade_signals
         raise Exception(
             f"[Error] Cannot get data from server:"
             f" Status code {resp.status_code}, {resp.json()}"
@@ -123,7 +143,7 @@ class TradingFromSignal:
         magic_numbers_from_signals = []
 
         for signal in signals:
-            signal["magic_numbers"] = int(
+            signal.magic_numbers = int(
                 f'{magic_number_prefix}{signal.external_signal_id}'
             )
             magic_numbers_from_signals.append(signal.magic_numbers)
@@ -166,7 +186,7 @@ class TradingFromSignal:
                 self.logger.warning(
                     f"Signal {signal_info} will be IGNORED as it belongs to closed deal"
                     f"(magic number {signal_magic_number}, ticket {closed_deal.ticket},"
-                    f" position {closed_deal.position_id}, time {datetime.fromtimestamp(closed_deal.time)})"
+                    f" position {closed_deal.position_id}, time {datetime.datetime.fromtimestamp(closed_deal.time)})"
                 )
                 continue
 
@@ -176,9 +196,9 @@ class TradingFromSignal:
                     signal_magic_number
                 )
                 is_up_to_date = round(exist_open_position.sl, 5) == round(
-                    signal["stop_loss"], 5
+                    signal.stop_loss, 5
                 ) and round(exist_open_position.tp, 5) == round(
-                    signal["take_profit"], 5
+                    signal.take_profit, 5
                 )
                 if is_up_to_date:
                     self.logger.warning(
@@ -201,16 +221,16 @@ class TradingFromSignal:
                     magic_number=signal_magic_number,
                 )
             elif not self.valid_signal_for_copied(signal):
-                self.logger.info(
+                self.logger.error(
                     f"Signal {signal_magic_number} will be IGNORE instead of Create as open time or price is not sutable with condition")
 
             else:
                 self.logger.info(
-                    f"Signal {signal_magic_number} will CREATE new trade")
+                    f"Signal {signal_magic_number} will CREATE new trade with {signal.price_diff=} pips, signal.time_diff {str(signal.time_diff)}")
 
                 order_type = (
                     mt5.ORDER_TYPE_BUY
-                    if signal["type"] == "BUY"
+                    if signal.type == "BUY"
                     else mt5.ORDER_TYPE_SELL
                 )
 
