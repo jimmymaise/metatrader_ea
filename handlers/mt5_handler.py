@@ -1,3 +1,4 @@
+import pandas as pd
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from handlers.constant import SymbolFillingModeEnum, Common
@@ -9,12 +10,16 @@ class Mt5Setting:
     login_id: int
     password: str
     setup_path: str
-    copied_volume_cofficient: float
+    copied_volume_coefficient: float
     symbol_postfix: str
     master_trader_id: str
     source: str
     bot_name: str
     type_filling: str
+    exist_order_copy:str
+    max_allowed_order_age_to_copy_in_minutes:int
+    max_allowed_price_difference_in_pips: float
+
 
 
 class Mt5Handler:
@@ -29,6 +34,7 @@ class Mt5Handler:
         self.logger = logger
         self.prefered_order_type_filling_name = mt5_setting.type_filling
         self.copied_volume_cofficient = mt5_setting.copied_volume_cofficient or 1
+        self.max_allowed_order_age_to_copy_in_minutes= self.max_allowed_order_age_to_copy_in_minutes
 
 
         if not setup:
@@ -38,6 +44,12 @@ class Mt5Handler:
 
 
         self.ea_name = mt5_setting.bot_name or "Python EA"
+    
+
+    def convert_to_broker_symbol_format(self, api_signal_symbol):
+        return f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}"
+
+        
 
     def get_bot_info(self):
         terminal_info = self.mt5.terminal_info()
@@ -210,6 +222,18 @@ class Mt5Handler:
 
     def get_current_open_position(self):
         return self.mt5.positions_get()
+    
+
+    def get_server_time(self):
+        symbol = self.convert_to_broker_symbol_format("EURUSD")
+        now = datetime.now()
+        ticks = self.mt5.copy_ticks_range(symbol, now - timedelta(seconds=60), now, self.mt5.COPY_TICKS_ALL)
+
+        if len(ticks) > 0:
+            return ticks[-1][0]
+        else:
+            self.logger.error("No ticks received. Cannot determine server time.")
+            return None
 
     def shutdown(self):
         self.logger.info(f"{self.get_bot_info()}")
