@@ -39,7 +39,7 @@ class TradeSignal:
     market_price: float
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
-    magic_numbers:  Optional[float] = None
+    magic_numbers: Optional[float] = None
     time_diff: Optional[float] = None
     price_diff: Optional[float] = None
 
@@ -67,14 +67,17 @@ class TradingFromSignal:
         self.bot_config = bot_config
         self.mt5_handler.get_server_time()
 
-    def calcluate_price_differences_in_pips(self, signal):
-        tick = self.mt5_handler.mt5.symbol_info_tick(signal.symbol)
-        current_price = tick.ask if signal.type == TradeType.BUY else tick.bid
+    def calculate_price_differences_in_pips(self, signal):
+
+        mt5_order_type_code = self.mt5_handler.mt5.ORDER_TYPE_BUY if signal.type == TradeType.BUY \
+            else self.mt5_handler.mt5.ORDER_TYPE_SELL
+
+        current_price = self.mt5_handler.get_market_price_by_order_type_symbol(mt5_order_type_code, signal.symbol)
         price_difference = abs(current_price - signal.price_order)
         if 'JPY' in signal.symbol:
-            price_difference_in_pips = 100*price_difference
+            price_difference_in_pips = 100 * price_difference
         else:
-            price_difference_in_pips = 10_000*price_difference
+            price_difference_in_pips = 10_000 * price_difference
         signal.price_diff = price_difference_in_pips
 
         return price_difference_in_pips, current_price, signal.price_order
@@ -104,7 +107,7 @@ class TradingFromSignal:
         return is_time_valid_to_copy
 
     def validate_price_for_copied(self, signal: TradeSignal):
-        price_difference_in_pips, current_price, signal_price = self.calcluate_price_differences_in_pips(
+        price_difference_in_pips, current_price, signal_price = self.calculate_price_differences_in_pips(
             signal)
         max_allowed_price_difference_in_pips = self.mt5_setting.max_allowed_price_difference_in_pips
         is_price_valid_to_copy = price_difference_in_pips <= max_allowed_price_difference_in_pips
@@ -127,7 +130,7 @@ class TradingFromSignal:
 
         if resp.status_code in [requests.codes.created, requests.codes.ok]:
             for signal in resp.json()["signals"]:
-                signal['symbol'] = self.mt5_handler.convert_to_broker_symbol_format(
+                signal['symbol'] = self.mt5_handler.convert_to_broker_symbol_format_and_enable_symbol(
                     signal['symbol'])
                 trade_signals.append(TradeSignal(**signal))
             return trade_signals
@@ -167,7 +170,7 @@ class TradingFromSignal:
                 is_deal_created_by_bot_and_closed := str(deal.magic).startswith(
                     magic_number_prefix
                 )
-                and not open_copied_positions_dict.get(deal.magic)
+                                                     and not open_copied_positions_dict.get(deal.magic)
             )
         }
 

@@ -2,6 +2,7 @@ import datetime
 from dataclasses import dataclass
 from handlers.constant import SymbolFillingModeEnum, Common
 
+
 @dataclass
 class Mt5Setting:
     server: str
@@ -14,9 +15,8 @@ class Mt5Setting:
     source: str
     bot_name: str
     type_filling: str
-    max_allowed_order_age_to_copy_in_minutes:int
+    max_allowed_order_age_to_copy_in_minutes: int
     max_allowed_price_difference_in_pips: float
-
 
 
 class Mt5Handler:
@@ -32,22 +32,19 @@ class Mt5Handler:
         self.mt5_setting = mt5_setting
         self.prefered_order_type_filling_name = mt5_setting.type_filling
         self.copied_volume_coefficient = mt5_setting.copied_volume_coefficient or 1
-        self.max_allowed_order_age_to_copy_in_minutes= mt5_setting.max_allowed_order_age_to_copy_in_minutes
-
+        self.max_allowed_order_age_to_copy_in_minutes = mt5_setting.max_allowed_order_age_to_copy_in_minutes
 
         if not setup:
             raise Exception(f"{self.mt5.last_error()} with setting {mt5_setting}")
         self.logger.info(self.mt5.terminal_info())
-        self.bot_info= self.get_bot_info()
-
+        self.bot_info = self.get_bot_info()
 
         self.ea_name = mt5_setting.bot_name or "Python EA"
-    
 
-    def convert_to_broker_symbol_format(self, api_signal_symbol):
-        return f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}".replace("/","")
-
-        
+    def convert_to_broker_symbol_format_and_enable_symbol(self, api_signal_symbol):
+        symbol = f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}".replace("/", "")
+        self.enable_symbol(symbol)
+        return symbol
 
     def get_bot_info(self):
         terminal_info = self.mt5.terminal_info()
@@ -56,13 +53,12 @@ class Mt5Handler:
             "setup_path": terminal_info.path,
             "data_path": terminal_info.data_path,
             "account_name": account_info.name,
-            "login":account_info.login,
-            "server":account_info.server,
-            "prefered_order_type_filling_name":self.prefered_order_type_filling_name,
+            "login": account_info.login,
+            "server": account_info.server,
+            "prefered_order_type_filling_name": self.prefered_order_type_filling_name,
             "copied_volume_coefficient": self.copied_volume_coefficient
         }
-    
-    
+
     def _get_filling_type_by_volume_symbol(self, symbol):
         symbol_filling_type_name = SymbolFillingModeEnum(
             self.mt5.symbol_info(symbol).filling_mode
@@ -97,15 +93,15 @@ class Mt5Handler:
     def _validate_result(self, request, result):
         if not result:
             self.logger.error(f"\t\t[Error]: {self.mt5.last_error()}\nBot info: {self.get_bot_info()}")
-            
+
 
         elif (
-            result.comment not in Common.SUCCESS_REQUEST_COMMENTS
-            and result.comment not in request["comment"]
+                result.comment not in Common.SUCCESS_REQUEST_COMMENTS
+                and result.comment not in request["comment"]
         ):
             self.logger.warning(
                 f"\t\t[Probally Error] Request comment is {result.comment}\nBot info: {self.get_bot_info()}")
-            
+
 
         else:
             self.logger.info(f"\t[OK]: {result.comment}")
@@ -134,9 +130,7 @@ class Mt5Handler:
         }
         return self.send_order_request(request)
 
-    def open_trade(
-        self, symbol, volume, order_type, stop_loss, take_profit, magic_number
-    ):
+    def enable_symbol(self, symbol):
         selected = self.mt5.symbol_select(symbol, True)
 
         if not selected:
@@ -144,6 +138,9 @@ class Mt5Handler:
                 f"Exception: Failed to select {symbol}, error code ={self.mt5.last_error()}"
             )
 
+    def open_trade(
+            self, symbol, volume, order_type, stop_loss, take_profit, magic_number
+    ):
         request = {
             "action": self.mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
@@ -164,7 +161,6 @@ class Mt5Handler:
         else:
             self.logger.error(
                 f"[Error] Cannot create order \nBot info: {self.get_bot_info()}")
-            
 
     def get_market_price_by_order_type_symbol(self, mt5_order_type_code, symbol):
         symbol_info_tick = self.mt5.symbol_info_tick(symbol)
@@ -180,19 +176,16 @@ class Mt5Handler:
 
         else:
             raise Exception(f"Invalid code: {mt5_order_type_code}")
-    
+
     def get_ea_login(self):
         account_info = self.mt5.account_info()
         return f'{account_info.login}@{account_info.server}({account_info.name})'
-    
-    
+
     def get_ea_comment(self):
         return f"EA {self.mt5.account_info().login}"
-    
-
 
     def update_trade(
-        self, position_ticket, symbol, stop_loss, take_profit, magic_number
+            self, position_ticket, symbol, stop_loss, take_profit, magic_number
     ):
         request = {
             "action": self.mt5.TRADE_ACTION_SLTP,
@@ -220,10 +213,9 @@ class Mt5Handler:
 
     def get_current_open_position(self):
         return self.mt5.positions_get()
-    
 
     def get_server_time(self):
-        symbol = self.convert_to_broker_symbol_format("EURUSD")
+        symbol = self.convert_to_broker_symbol_format_and_enable_symbol("EURUSD")
         now = datetime.datetime.now(datetime.timezone.utc)
         ticks = self.mt5.copy_ticks_range(symbol, now - datetime.timedelta(seconds=60), now, self.mt5.COPY_TICKS_ALL)
 
