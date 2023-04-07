@@ -6,7 +6,7 @@ from enum import Enum
 from multiprocessing import Process
 from typing import Dict, Generator, Optional
 
-import dateutil
+import dateutil.parser
 import MetaTrader5 as mt5
 import requests
 from dacite import from_dict
