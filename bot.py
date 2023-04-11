@@ -72,7 +72,8 @@ class TradingFromSignal:
         mt5_order_type_code = self.mt5_handler.mt5.ORDER_TYPE_BUY if signal.type == TradeType.BUY \
             else self.mt5_handler.mt5.ORDER_TYPE_SELL
 
-        current_price = self.mt5_handler.get_market_price_by_order_type_symbol(mt5_order_type_code, signal.symbol)
+        current_price = self.mt5_handler.get_market_price_by_order_type_symbol(
+            mt5_order_type_code, signal.symbol)
         price_difference = abs(current_price - signal.price_order)
         if 'JPY' in signal.symbol:
             price_difference_in_pips = 100 * price_difference
@@ -120,9 +121,10 @@ class TradingFromSignal:
     def valid_signal_for_copied(self, signal: TradeSignal):
         return self.validate_price_for_copied(signal) and self.validate_signal_order_date_for_copied(signal)
 
-    def get_signal_from_api(self, master_id, source_id) -> list[TradeSignal]:
+    def get_signal_from_api(self, source_id, master_ids) -> list[TradeSignal]:
+        master_ids_str = ','.join(master_ids)
         headers = {"Content-Type": "application/json"}
-        url = f"{self.bot_config.base_controller_url}/master_traders/{source_id}/{master_id}"
+        url = f"{self.bot_config.base_controller_url}/master_traders/?source={source_id}&ids={master_ids_str}"
         self.logger.info(f"Calling api {url} to get info")
 
         resp = requests.get(url=url, headers=headers)
@@ -170,7 +172,7 @@ class TradingFromSignal:
                 is_deal_created_by_bot_and_closed := str(deal.magic).startswith(
                     magic_number_prefix
                 )
-                                                     and not open_copied_positions_dict.get(deal.magic)
+                and not open_copied_positions_dict.get(deal.magic)
             )
         }
 
@@ -257,24 +259,28 @@ class TradingFromSignal:
         source = self.mt5_setting.source
         try:
             while True:
-                signals_from_api = self.get_signal_from_api(
-                    master_trader_id, source)
-
                 self.logger.info("-------------START---------------")
                 self.logger.info(f"Bot info {self.bot_info}")
+                for source, master_trader_ids in master_trader_id.items():
+                    signals_from_api = self.get_signal_from_api(
+                        source, master_trader_ids)
 
-                self.logger.info(
-                    f"\nGet {len(signals_from_api)} signal(s):\n{signals_from_api}\n"
-                )
-                self.process_signals_from_master_trader(
-                    master_trader_id, signals_from_api
-                )
+                    for master_trader_id in master_trader_ids:
+                        master_signals = [
+                            signal for signal in signals_from_api if signal.external_master_id == master_trader_id]
+
+                        self.logger.info(
+                            f"\nGet {len(master_signals)} signal(s):\n{master_signals}\n"
+                        )
+                        self.process_signals_from_master_trader(
+                            master_trader_id, master_signals
+                        )
 
                 self.logger.info(
                     f"\nDetail bot info:\n{self.mt5_handler.get_bot_info()}")
                 self.logger.info("--------------END----------------")
 
-                time.sleep(30)
+                time.sleep(1)
         finally:
             self.logger.info(f"Bot info {self.bot_info} is going to shutdown")
             self.logger.info("--------------SHUTDOWN MT5---------------")

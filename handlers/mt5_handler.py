@@ -11,8 +11,7 @@ class Mt5Setting:
     setup_path: str
     copied_volume_coefficient: float
     symbol_postfix: str
-    master_trader_id: str
-    source: str
+    master_traders: dict
     bot_name: str
     type_filling: str
     max_allowed_order_age_to_copy_in_minutes: int
@@ -35,14 +34,16 @@ class Mt5Handler:
         self.max_allowed_order_age_to_copy_in_minutes = mt5_setting.max_allowed_order_age_to_copy_in_minutes
 
         if not setup:
-            raise Exception(f"{self.mt5.last_error()} with setting {mt5_setting}")
+            raise Exception(
+                f"{self.mt5.last_error()} with setting {mt5_setting}")
         self.logger.info(self.mt5.terminal_info())
         self.bot_info = self.get_bot_info()
 
         self.ea_name = mt5_setting.bot_name or "Python EA"
 
     def convert_to_broker_symbol_format_and_enable_symbol(self, api_signal_symbol):
-        symbol = f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}".replace("/", "")
+        symbol = f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}".replace(
+            "/", "")
         self.enable_symbol(symbol)
         return symbol
 
@@ -92,8 +93,8 @@ class Mt5Handler:
 
     def _validate_result(self, request, result):
         if not result:
-            self.logger.error(f"\t\t[Error]: {self.mt5.last_error()}\nBot info: {self.get_bot_info()}")
-
+            self.logger.error(
+                f"\t\t[Error]: {self.mt5.last_error()}\nBot info: {self.get_bot_info()}")
 
         elif (
                 result.comment not in Common.SUCCESS_REQUEST_COMMENTS
@@ -101,7 +102,6 @@ class Mt5Handler:
         ):
             self.logger.warning(
                 f"\t\t[Probally Error] Request comment is {result.comment}\nBot info: {self.get_bot_info()}")
-
 
         else:
             self.logger.info(f"\t[OK]: {result.comment}")
@@ -199,15 +199,18 @@ class Mt5Handler:
         return self.send_order_request(request)
 
     def send_order_request(self, request):
-        self.logger.info(f"\n\t[Sending request for account {self.get_ea_login()}]\n")
+        self.logger.info(
+            f"\n\t[Sending request for account {self.get_ea_login()}]\n")
         result = self.mt5.order_send(request)
         self._validate_result(request, result)
         return result
 
     def get_history_deal_within_x_days(self, x_days):
-        start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=x_days)
+        start_time = datetime.datetime.now(
+            datetime.timezone.utc) - datetime.timedelta(days=x_days)
         # as this library has with end time.  Perhaps time zone diff
-        end_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=2)
+        end_time = datetime.datetime.now(
+            datetime.timezone.utc) + datetime.timedelta(days=2)
 
         return self.mt5.history_deals_get(start_time, end_time)
 
@@ -215,14 +218,17 @@ class Mt5Handler:
         return self.mt5.positions_get()
 
     def get_server_time(self):
-        symbol = self.convert_to_broker_symbol_format_and_enable_symbol("EURUSD")
+        symbol = self.convert_to_broker_symbol_format_and_enable_symbol(
+            "EURUSD")
         now = datetime.datetime.now(datetime.timezone.utc)
-        ticks = self.mt5.copy_ticks_range(symbol, now - datetime.timedelta(seconds=60), now, self.mt5.COPY_TICKS_ALL)
+        ticks = self.mt5.copy_ticks_range(
+            symbol, now - datetime.timedelta(seconds=60), now, self.mt5.COPY_TICKS_ALL)
 
         if len(ticks) > 0:
             return ticks[-1][0]
         else:
-            self.logger.error("No ticks received. Cannot determine server time.")
+            self.logger.error(
+                "No ticks received. Cannot determine server time.")
             return None
 
     def shutdown(self):
