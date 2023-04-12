@@ -9,8 +9,13 @@
       "setup_path": "C:/mt5_terminal/ter2/terminal64.exe",
       "symbol_postfix": "",
       "master_traders": {
-        "zulu": [424174],
-        "exness": []
+        "zulu": [
+          424174
+        ],
+        "exness": [
+          11572998,
+          11810249
+        ]
       },
       "copied_volume_coefficient": 1,
       "bot_name": "MetaQ_Demo_test1",

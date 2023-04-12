@@ -41,10 +41,23 @@ class Mt5Handler:
 
         self.ea_name = mt5_setting.bot_name or "Python EA"
 
-    def convert_to_broker_symbol_format_and_enable_symbol(self, api_signal_symbol):
+    def convert_to_broker_symbol_format(self, api_signal_symbol):
         symbol = f"{api_signal_symbol}{self.mt5_setting.symbol_postfix}".replace(
             "/", "")
-        self.enable_symbol(symbol)
+        return symbol
+
+    def enable_symbol(self, symbol):
+        if not self.is_symbol_exists(symbol):
+            raise Exception(
+                f'Symbol {symbol} does not exist in this terminal {self.mt5_setting.server}')
+
+        selected = self.mt5.symbol_select(symbol, True)
+
+        if not selected:
+            raise Exception(
+                f"Exception: Failed to select {symbol}, error code ={self.mt5.last_error()}"
+            )
+        
         return symbol
 
     def get_bot_info(self):
@@ -130,13 +143,14 @@ class Mt5Handler:
         }
         return self.send_order_request(request)
 
-    def enable_symbol(self, symbol):
-        selected = self.mt5.symbol_select(symbol, True)
+    def is_symbol_exists(self, symbol: str) -> bool:
+        symbol_info = self.mt5.symbol_info(symbol)
+        if symbol_info is None:
+            return False
+        else:
+            return True
 
-        if not selected:
-            raise Exception(
-                f"Exception: Failed to select {symbol}, error code ={self.mt5.last_error()}"
-            )
+
 
     def open_trade(
             self, symbol, volume, order_type, stop_loss, take_profit, magic_number
@@ -218,8 +232,8 @@ class Mt5Handler:
         return self.mt5.positions_get()
 
     def get_server_time(self):
-        symbol = self.convert_to_broker_symbol_format_and_enable_symbol(
-            "EURUSD")
+        symbol = self.enable_symbol(self.convert_to_broker_symbol_format
+                                    ("EURUSD"))
         now = datetime.datetime.now(datetime.timezone.utc)
         ticks = self.mt5.copy_ticks_range(
             symbol, now - datetime.timedelta(seconds=60), now, self.mt5.COPY_TICKS_ALL)

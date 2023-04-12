@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from multiprocessing import Process
-from typing import Dict, Generator, Optional
+from typing import List, Optional
 
 import dateutil.parser
 import MetaTrader5 as mt5
@@ -44,6 +44,14 @@ class TradeSignal:
     price_diff: Optional[float] = None
 
 
+@dataclass
+class MasterTrader:
+    external_trader_id: str
+    source: str
+    signals: List[TradeSignal]
+    invalid_symbol_signal_count: Optional[int] = 0
+
+
 class TradingFromSignal:
     def __init__(self, mt5_setting: Mt5Setting, bot_config: BotConfig):
         now = datetime.datetime.now()
@@ -61,7 +69,7 @@ class TradingFromSignal:
         self.mt5_handler.get_ea_login()
         self.bot_info = (
             f"{self.mt5_handler.get_ea_login()}"
-            f"(copy:{mt5_setting.source}/{mt5_setting.master_trader_id} with copied_volume_coefficient {mt5_setting.copied_volume_coefficient})"
+            f"(copy:{mt5_setting.master_traders} with copied_volume_coefficient {mt5_setting.copied_volume_coefficient})"
         )
         self.bot_name = mt5_setting.bot_name
         self.bot_config = bot_config
@@ -121,21 +129,36 @@ class TradingFromSignal:
     def valid_signal_for_copied(self, signal: TradeSignal):
         return self.validate_price_for_copied(signal) and self.validate_signal_order_date_for_copied(signal)
 
-    def get_signal_from_api(self, source_id, master_ids) -> list[TradeSignal]:
-        master_ids_str = ','.join(master_ids)
+    def get_master_trader_data_from_api(self, source_id, master_ids) -> list[MasterTrader]:
+        master_ids_str = ','.join(map(str, master_ids))
         headers = {"Content-Type": "application/json"}
-        url = f"{self.bot_config.base_controller_url}/master_traders/?source={source_id}&ids={master_ids_str}"
+        url = f"{self.bot_config.base_controller_url}/master_traders/?source={source_id}&external_trader_ids={master_ids_str}"
         self.logger.info(f"Calling api {url} to get info")
 
         resp = requests.get(url=url, headers=headers)
-        trade_signals = []
+        master_traders = []
 
         if resp.status_code in [requests.codes.created, requests.codes.ok]:
-            for signal in resp.json()["signals"]:
-                signal['symbol'] = self.mt5_handler.convert_to_broker_symbol_format_and_enable_symbol(
-                    signal['symbol'])
-                trade_signals.append(TradeSignal(**signal))
-            return trade_signals
+            for master_trader_from_api in resp.json():
+                master_trader = MasterTrader(
+                    source=master_trader_from_api['source'], external_trader_id=master_trader_from_api['external_trader_id'], signals=[])
+
+                for signal in master_trader_from_api["signals"]:
+                    signal['symbol'] = self.mt5_handler.convert_to_broker_symbol_format(
+                        signal['symbol'])
+                    try:
+                        self.mt5_handler.enable_symbol(signal['symbol'])
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Signal {master_trader.external_trader_id}:{signal['external_signal_id']} will be IGNORED as we cannot enable this symbol as {e}"
+                        )
+                        master_trader.invalid_symbol_signal_count += 1
+                        continue
+                    master_trader.signals.append(TradeSignal(**signal))
+
+                master_traders.append(master_trader)
+
+            return master_traders
         raise Exception(
             f"[Error] Cannot get data from server:"
             f" Status code {resp.status_code}, {resp.json()}"
@@ -255,25 +278,28 @@ class TradingFromSignal:
             self.mt5_handler.close_trade_by_position(position)
 
     def run(self):
-        master_trader_id = self.mt5_setting.master_trader_id
-        source = self.mt5_setting.source
+        master_traders = self.mt5_setting.master_traders
         try:
             while True:
                 self.logger.info("-------------START---------------")
                 self.logger.info(f"Bot info {self.bot_info}")
-                for source, master_trader_ids in master_trader_id.items():
-                    signals_from_api = self.get_signal_from_api(
+                for source, master_trader_ids in master_traders.items():
+                    master_trader_data_from_api = self.get_master_trader_data_from_api(
                         source, master_trader_ids)
 
-                    for master_trader_id in master_trader_ids:
-                        master_signals = [
-                            signal for signal in signals_from_api if signal.external_master_id == master_trader_id]
+                    for master_trader in master_trader_data_from_api:
+                        master_signals = master_trader.signals
+                        if master_trader.invalid_symbol_signal_count:
+                            self.logger.error(
+                                f"\n[{source}:{master_trader.external_trader_id}] Have  {master_trader.invalid_symbol_signal_count} invalid symbol signal(s)\n"
+                            )
 
                         self.logger.info(
-                            f"\nGet {len(master_signals)} signal(s):\n{master_signals}\n"
+                            f"\n[{source}:{master_trader.external_trader_id}] Get {len(master_signals)} valid symbol signal(s):\n{master_signals}\n"
                         )
+
                         self.process_signals_from_master_trader(
-                            master_trader_id, master_signals
+                            master_trader.external_trader_id, master_signals
                         )
 
                 self.logger.info(

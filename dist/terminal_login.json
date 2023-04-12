@@ -3,15 +3,22 @@
   "log_folder_path": "C:/mt5_terminal/test_mt5",
   "terminals": [
     {
-      "server": "LiteFinance-MT5",
-      "login_id": 191938,
-      "password": "abcd1234",
-      "setup_path": "C:/mt5_terminal/ter5/terminal64.exe",
-      "symbol_postfix": "cl",
-      "source": "zulu",
-      "master_trader_id": "424174",
+      "server": "MetaQuotes-Demo",
+      "login_id": 67218993,
+      "password": "vkihcw2b",
+      "setup_path": "C:/mt5_terminal/ter2/terminal64.exe",
+      "symbol_postfix": "",
+      "master_traders": {
+        "zulu": [
+          424174
+        ],
+        "exness": [
+          11572998,
+          11810249
+        ]
+      },
       "copied_volume_coefficient": 1,
-      "bot_name": "MT5",
+      "bot_name": "MetaQ_Demo_test1",
       "type_filling": "ORDER_FILLING_FOK",
       "max_allowed_order_age_to_copy_in_minutes": 3000,
       "max_allowed_price_difference_in_pips": 3
