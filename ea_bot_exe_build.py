@@ -1,9 +1,11 @@
+import os
 if __name__ == "__main__":
     try:
+        from version import BUILD_TIME
         import multiprocessing
         from bot import bot_runner
         multiprocessing.freeze_support()
-        print("🤖🤖🤖EA Python bot 1.2 💰💰💰")
+        print(f"🤖🤖🤖EA Python bot 1.3 build {BUILD_TIME} 💰💰💰")
         input("🙏Please enter any key to start\n")
 
         while True:
