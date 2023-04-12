@@ -13,6 +13,7 @@ from dacite import from_dict
 
 from handlers.logger import Logger
 from handlers.mt5_handler import Mt5Handler, Mt5Setting
+from handlers.constant import Common
 
 
 class TradeType(Enum):
@@ -24,7 +25,7 @@ class TradeType(Enum):
 class BotConfig:
     base_controller_url: str
     log_folder_path: str
-    separator_number_string: str = "33"
+    separator_number_string: str = Common.SEPRATOR_NUMBER_STRING
 
 
 @dataclass
@@ -284,6 +285,11 @@ class TradingFromSignal:
                 self.logger.info("-------------START---------------")
                 self.logger.info(f"Bot info {self.bot_info}")
                 for source, master_trader_ids in master_traders.items():
+                    if not master_trader_ids:
+                        self.logger.warning(
+                            f"Source {source} has no master trader id")
+                        continue
+
                     master_trader_data_from_api = self.get_master_trader_data_from_api(
                         source, master_trader_ids)
 
@@ -318,14 +324,37 @@ def worker(mt5_setting: Mt5Setting, bot_config: BotConfig):
     bot.run()
 
 
+def validate_mt5_settings(mt5_settings: list[Mt5Setting]):
+    setup_paths = []
+    accounts = []
+    for mt5_setting in mt5_settings:
+        account = f'{mt5_setting.server}|{mt5_setting.login_id}'
+
+        if mt5_setting.setup_path in setup_paths:
+            raise Exception(
+                f'The setup {mt5_setting.setup_path} is already used')
+
+        if account in accounts:
+            raise Exception(
+                f'The account {account} is already used. Use only one terminal for one account')
+
+        setup_paths.append(mt5_setting.setup_path)
+        accounts.append(account)
+
+
 def bot_runner():
-    with open("./terminal_login.json") as content:
-        config = json.load(content)
+    try:
+        with open("./terminal_login.json") as content:
+            config = json.load(content)
+    except Exception as e:
+        raise Exception(
+            f'Cannot parse terminal_login.json. Check it again {e}')
 
     bot_config = from_dict(data_class=BotConfig, data=config)
     terminals = config["terminals"]
     procs = []
     mt5_settings = [Mt5Setting(**terminal) for terminal in terminals]
+    validate_mt5_settings(mt5_settings)
 
     for mt5_setting in mt5_settings:
         proc = Process(target=worker, args=(mt5_setting, bot_config))

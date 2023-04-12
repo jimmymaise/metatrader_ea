@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from handlers.constant import SymbolFillingModeEnum, Common
+from handlers.constant import SymbolFillingModeEnum, Common, ReturnCodeTradeServer
 
 
 @dataclass
@@ -18,6 +18,8 @@ class Mt5Setting:
     max_allowed_price_difference_in_pips: float
 
 
+
+
 class Mt5Handler:
     def __init__(self, mt5, logger, mt5_setting: Mt5Setting):
         self.mt5 = mt5
@@ -33,7 +35,7 @@ class Mt5Handler:
         self.copied_volume_coefficient = mt5_setting.copied_volume_coefficient or 1
         self.max_allowed_order_age_to_copy_in_minutes = mt5_setting.max_allowed_order_age_to_copy_in_minutes
 
-        if not setup:
+        if not setup or not self.mt5.terminal_info():
             raise Exception(
                 f"{self.mt5.last_error()} with setting {mt5_setting}")
         self.logger.info(self.mt5.terminal_info())
@@ -57,7 +59,7 @@ class Mt5Handler:
             raise Exception(
                 f"Exception: Failed to select {symbol}, error code ={self.mt5.last_error()}"
             )
-        
+
         return symbol
 
     def get_bot_info(self):
@@ -104,20 +106,38 @@ class Mt5Handler:
         else:
             return calculated_volume
 
+    def _get_server_enum(self, retcode):
+        try:
+            return ReturnCodeTradeServer(retcode)
+        except Exception:
+            self.logger.error(f'Cannot detect server return code {retcode}')
+            return None
+
     def _validate_result(self, request, result):
         if not result:
-            self.logger.error(
+            return self.logger.error(
                 f"\t\t[Error]: {self.mt5.last_error()}\nBot info: {self.get_bot_info()}")
 
-        elif (
+        retcode = result[0]
+        retcode_enum = self._get_server_enum(retcode)
+
+        if not retcode_enum:
+            return self.logger.error(
+                f"Unknown result as cann't get retcode for({retcode})")
+
+        if retcode not in Common.SUCCESSFUL_MT5_TRADE_RETCODE:
+            return self.logger.error(
+                f"Order failed. Retcode: {retcode_enum.name} ({retcode})")
+
+        if (
                 result.comment not in Common.SUCCESS_REQUEST_COMMENTS
                 and result.comment not in request["comment"]
         ):
-            self.logger.warning(
-                f"\t\t[Probally Error] Request comment is {result.comment}\nBot info: {self.get_bot_info()}")
+            return self.logger.warning(
+                f"\t\t[Probally Error Retcode: {retcode_enum.name} ({retcode})] Request comment is {result.comment}\nBot info: {self.get_bot_info()}")
 
-        else:
-            self.logger.info(f"\t[OK]: {result.comment}")
+        return self.logger.info(
+            f"\t[OK Retcode: {retcode_enum.name} ({retcode})]: {result.comment}")
 
     def close_trade_by_position(self, position):
         # Determine the order type to use when closing a position
@@ -149,8 +169,6 @@ class Mt5Handler:
             return False
         else:
             return True
-
-
 
     def open_trade(
             self, symbol, volume, order_type, stop_loss, take_profit, magic_number
