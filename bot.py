@@ -1,56 +1,16 @@
 import datetime
 import json
 import time
-from dataclasses import dataclass, field
-from enum import Enum
 from multiprocessing import Process
-from typing import List, Optional
 
 import dateutil.parser
 import MetaTrader5 as mt5
 import requests
 from dacite import from_dict
 
+from handlers.classes import BotConfig, MasterTrader, TradeSignal, TradeType
 from handlers.logger import Logger
 from handlers.mt5_handler import Mt5Handler, Mt5Setting
-from handlers.constant import Common
-
-
-class TradeType(Enum):
-    BUY = "BUY"
-    SELL = "SELL"
-
-
-@dataclass
-class BotConfig:
-    base_controller_url: str
-    log_folder_path: str
-    separator_number_string: str = Common.SEPRATOR_NUMBER_STRING
-
-
-@dataclass
-class TradeSignal:
-    id: int
-    external_signal_id: str
-    symbol: str
-    type: str
-    size: float
-    time: str
-    price_order: float
-    market_price: float
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
-    magic_numbers: Optional[float] = None
-    time_diff: Optional[float] = None
-    price_diff: Optional[float] = None
-
-
-@dataclass
-class MasterTrader:
-    external_trader_id: str
-    source: str
-    signals: List[TradeSignal]
-    invalid_symbol_signal_count: Optional[int] = 0
 
 
 class TradingFromSignal:
@@ -165,6 +125,18 @@ class TradingFromSignal:
             f" Status code {resp.status_code}, {resp.json()}"
         )
 
+    @staticmethod
+    def is_up_to_date_stop_loss_take_profit(position, signal: TradeSignal):
+        if position.sl == signal.stop_loss and position.tp == signal.take_profit:
+            return True
+        if None not in [position.sl, signal.stop_loss, position.tp, signal.take_profit]:
+            return round(position.sl, 5) == round(
+                signal.stop_loss, 5
+            ) and round(signal.tp, 5) == round(
+                signal.take_profit, 5
+            )
+        return False
+
     def process_signals_from_master_trader(self, master_trader_id: str, signals: list[TradeSignal]):
         magic_number_prefix = (
             f"{master_trader_id}{self.bot_config.separator_number_string}"
@@ -224,11 +196,8 @@ class TradingFromSignal:
                 exist_open_position = open_copied_positions_dict.get(
                     signal_magic_number
                 )
-                is_up_to_date = round(exist_open_position.sl, 5) == round(
-                    signal.stop_loss, 5
-                ) and round(exist_open_position.tp, 5) == round(
-                    signal.take_profit, 5
-                )
+                is_up_to_date = self.is_up_to_date_stop_loss_take_profit(
+                    exist_open_position, signal)
                 if is_up_to_date:
                     self.logger.warning(
                         f"Signal {signal_info} will be IGNORED as it is created with same information with the ticket {exist_open_position.ticket}"

@@ -70,3 +70,5 @@ class Common:
         ReturnCodeTradeServer.TRADE_RETCODE_DONE.value,
         ReturnCodeTradeServer.TRADE_RETCODE_DONE_PARTIAL.value
     }
+    DEFAULT_STOP_LOSS = 0.0
+    DEFAULT_TAKE_PROFIT = 0.0

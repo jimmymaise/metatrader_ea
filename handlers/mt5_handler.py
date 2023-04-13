@@ -1,23 +1,6 @@
 import datetime
-from dataclasses import dataclass
 from handlers.constant import SymbolFillingModeEnum, Common, ReturnCodeTradeServer
-
-
-@dataclass
-class Mt5Setting:
-    server: str
-    login_id: int
-    password: str
-    setup_path: str
-    copied_volume_coefficient: float
-    symbol_postfix: str
-    master_traders: dict
-    bot_name: str
-    type_filling: str
-    max_allowed_order_age_to_copy_in_minutes: int
-    max_allowed_price_difference_in_pips: float
-
-
+from handlers.classes import Mt5Setting
 
 
 class Mt5Handler:
@@ -185,6 +168,7 @@ class Mt5Handler:
             "comment": self.get_ea_comment(),
             "type_filling": self._get_filling_type_by_volume_symbol(symbol),
         }
+        request = {k: v for k, v in request.items() if v is not None}
         result = self.send_order_request(request)
         if result and (order_ticket := getattr(result, "order", None)):
             self.logger.info(
@@ -228,11 +212,12 @@ class Mt5Handler:
             "magic": magic_number,
             "comment": self.get_ea_comment(),
         }
+        request = {k: v for k, v in request.items() if v is not None}
         return self.send_order_request(request)
 
     def send_order_request(self, request):
         self.logger.info(
-            f"\n\t[Sending request for account {self.get_ea_login()}]\n")
+            f"\n\t[Sending request for account {self.get_ea_login()}]\n {request}\n")
         result = self.mt5.order_send(request)
         self._validate_result(request, result)
         return result
