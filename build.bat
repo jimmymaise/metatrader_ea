@@ -12,3 +12,6 @@ poetry run pyinstaller -c ea_bot_exe_build.py --onefile --name ea_bot --hiddenim
 
 REM Copy the terminal_login.json file to the dist directory
 copy terminal_login.json ".\dist\terminal_login.json"
+
+REM Copy the terminal_login.json file to the dist directory
+copy version.py ".\dist\version.txt"

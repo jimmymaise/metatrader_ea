@@ -2,3 +2,4 @@ build/*
 .idea/*
 .vscode/*
 ea_bot.spec
+version.py
