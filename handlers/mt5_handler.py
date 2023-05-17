@@ -21,7 +21,7 @@ class Mt5Handler:
         if not setup or not self.mt5.terminal_info():
             raise Exception(
                 f"{self.mt5.last_error()} with setting {mt5_setting}")
-        self.logger.info(self.mt5.terminal_info())
+        self.logger.debug(self.mt5.terminal_info())
         self.bot_info = self.get_bot_info()
 
         self.ea_name = mt5_setting.bot_name or "Python EA"
@@ -70,7 +70,7 @@ class Mt5Handler:
             return getattr(self.mt5, self.prefered_order_type_filling_name)
 
         else:
-            self.logger.info(
+            self.logger.debug(
                 f"Cannot use prefered order filling type: {self.prefered_order_type_filling_name} as it is not allowed"
                 f".Trying to use allowed filling type {allowed_order_filling_types[0]}"
             )
@@ -119,7 +119,7 @@ class Mt5Handler:
             return self.logger.warning(
                 f"\t\t[Probally Error Retcode: {retcode_enum.name} ({retcode})] Request comment is {result.comment}\nBot info: {self.get_bot_info()}")
 
-        return self.logger.info(
+        return self.logger.debug(
             f"\t[OK Retcode: {retcode_enum.name} ({retcode})]: {result.comment}")
 
     def close_trade_by_position(self, position):
@@ -171,7 +171,7 @@ class Mt5Handler:
         request = {k: v for k, v in request.items() if v is not None}
         result = self.send_order_request(request)
         if result and (order_ticket := getattr(result, "order", None)):
-            self.logger.info(
+            self.logger.debug(
                 f"Created order with ticket {order_ticket} (magic number {magic_number})"
             )
         else:
@@ -216,7 +216,7 @@ class Mt5Handler:
         return self.send_order_request(request)
 
     def send_order_request(self, request):
-        self.logger.info(
+        self.logger.debug(
             f"\n\t[Sending request for account {self.get_ea_login()}]\n {request}\n")
         result = self.mt5.order_send(request)
         self._validate_result(request, result)

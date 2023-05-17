@@ -21,12 +21,12 @@ class TradingFromSignal:
             f"{bot_config.log_folder_path}/{mt5_setting.bot_name}/{formatted_date}.log"
         )
         self.logger = Logger(
-            log_file_path=log_file_path, message_prefix=f'{mt5_setting.login_id}::{mt5_setting.bot_name}'
+            log_file_path=log_file_path, message_prefix=f'{mt5_setting.login_id}::{mt5_setting.bot_name}', log_level=bot_config.log_level
         ).get_logger()
 
         self.mt5_handler = Mt5Handler(mt5, self.logger, mt5_setting)
         self.mt5_setting = mt5_setting
-        self.logger.error(mt5.last_error())
+        self.logger.info(mt5.last_error())
         self.mt5_handler.get_ea_login()
         self.bot_info = (
             f"{self.mt5_handler.get_ea_login()}"
@@ -110,7 +110,7 @@ class TradingFromSignal:
                     try:
                         self.mt5_handler.enable_symbol(signal['symbol'])
                     except Exception as e:
-                        self.logger.warning(
+                        self.logger.debug(
                             f"Signal {master_trader.external_trader_id}:{signal['external_signal_id']} will be IGNORED as we cannot enable this symbol as {e}"
                         )
                         master_trader.invalid_symbol_signal_count += 1
@@ -121,8 +121,8 @@ class TradingFromSignal:
 
             return master_traders
         raise Exception(
-            f"[Error] Cannot get data from server:"
-            f" Status code {resp.status_code}, {resp.json()}"
+            f"[Error] Cannot get data from server: {url}"
+            f" Status code {resp.status_code}"
         )
 
     @staticmethod
@@ -199,13 +199,13 @@ class TradingFromSignal:
                 is_up_to_date = self.is_up_to_date_stop_loss_take_profit(
                     exist_open_position, signal)
                 if is_up_to_date:
-                    self.logger.warning(
+                    self.logger.debug(
                         f"Signal {signal_info} will be IGNORED as it is created with same information with the ticket {exist_open_position.ticket}"
                         f"(magic number {signal_magic_number})"
                     )
                     continue
 
-                self.logger.info(
+                self.logger.debug(
                     f"Signal {signal_info} will UPDATE the position {exist_open_position.ticket}."
                     f"(magic number {signal_magic_number})\n"
                     f"New stop lost/take profit: {signal.stop_loss}/{signal.take_profit}\n"
@@ -223,7 +223,7 @@ class TradingFromSignal:
                     f"Signal {signal_info} will be IGNORE instead of Create as open time or price is not sutable with condition")
 
             else:
-                self.logger.info(
+                self.logger.debug(
                     f"Signal {signal_info} will CREATE new trade with {signal.price_diff=} pips, signal.time_diff {str(signal.time_diff)}")
 
                 order_type = (
@@ -242,20 +242,21 @@ class TradingFromSignal:
                 )
 
         for _, position in open_copied_position_to_be_closed_dict.items():
-            self.logger.warning(
+            self.logger.info(
                 f"The position created by old Signal {position.magic} will be closed"
             )
             self.mt5_handler.close_trade_by_position(position)
 
     def run(self):
         master_traders = self.mt5_setting.master_traders
+        exception = None
         try:
             while True:
                 self.logger.info("-------------START---------------")
                 self.logger.info(f"Bot info {self.bot_info}")
                 for source, master_trader_ids in master_traders.items():
                     if not master_trader_ids:
-                        self.logger.warning(
+                        self.logger.debug(
                             f"Source {source} has no master trader id")
                         continue
 
@@ -269,7 +270,7 @@ class TradingFromSignal:
                                 f"\n[{source}:{master_trader.external_trader_id}] Have  {master_trader.invalid_symbol_signal_count} invalid symbol signal(s)\n"
                             )
 
-                        self.logger.info(
+                        self.logger.debug(
                             f"\n[{source}:{master_trader.external_trader_id}] Get {len(master_signals)} valid symbol signal(s):\n{master_signals}\n"
                         )
 
@@ -277,13 +278,17 @@ class TradingFromSignal:
                             master_trader.external_trader_id, master_signals
                         )
 
-                self.logger.info(
+                self.logger.debug(
                     f"\nDetail bot info:\n{self.mt5_handler.get_bot_info()}")
                 self.logger.info("--------------END----------------")
 
                 time.sleep(1)
+        except Exception as e:
+            exception = e
+            self.logger.error(e)
         finally:
-            self.logger.info(f"Bot info {self.bot_info} is going to shutdown")
+            self.logger.info(
+                f"Bot info {self.bot_info} is going to shutdown with exception {exception}")
             self.logger.info("--------------SHUTDOWN MT5---------------")
             self.mt5_handler.shutdown()
 

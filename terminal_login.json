@@ -1,6 +1,7 @@
 {
   "base_controller_url": "http://40.78.1.149:8000",
   "log_folder_path": "C:/mt5_terminal/test_mt5",
+  "log_level": "INFO",
   "terminals": [
     {
       "server": "MetaQuotes-Demo",

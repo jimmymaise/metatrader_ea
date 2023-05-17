@@ -24,6 +24,7 @@ class TradeType(Enum):
 class BotConfig(BaseDataClass):
     base_controller_url: str
     log_folder_path: str
+    log_level: str
     separator_number_string: str = Common.SEPRATOR_NUMBER_STRING
 
 
