@@ -1,87 +1,72 @@
-# MetaTrader EA Bot
+# MetaTrader EA Bot: Automated Trading Simplified
 
-## Overview
+## Introduction
 
-The MetaTrader EA Bot is an automated trading bot designed to interact with the MetaTrader 5 trading platform. Utilizing signals from master traders, it automates trading actions such as creating new trades, updating existing trades, and ignoring signals based on pre-defined criteria.
+Welcome to MetaTrader EA Bot, your go-to automated trading bot for the MetaTrader 5 platform. Built to execute trades using the insights of master traders, this bot provides automated capabilities for initiating, updating, and filtering trades according to your predefined criteria.
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Building the Bot](#building-the-bot)
-- [Code Overview](#code-overview)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [How to Use](#how-to-use)
+- [Building the Executable](#building-the-executable)
+- [Code Anatomy](#code-anatomy)
+- [Get Involved](#get-involved)
+- [Legal](#legal)
+  - [License](#license)
 
-## Installation
+## Getting Started
 
-To install the necessary dependencies, follow the steps below:
+### Installation
 
-1. Open your terminal and navigate to the project's root directory.
-2. Run the following command:
-   \`\`\`
-   poetry install
-   \`\`\`
+1. Open a terminal window and navigate to the root folder of the project.
+2. To install necessary dependencies, type the command: 'poetry install'
 
-## Configuration
+### Configuration
 
-Before running the bot, you must configure your MetaTrader 5 login credentials and specific bot settings.
+Before you run the bot, it's essential to set up your MetaTrader 5 login credentials and specify which master traders you wish to follow.
 
-1. Open the `terminal_login.json` file.
-2. Enter your MetaTrader 5 login credentials and specify which master traders to follow.
+1. Locate and open the 'terminal_login.json' file.
+2. Fill in your MetaTrader 5 login details and specify your preferred master traders to follow.
 
-Here's an example of what the `terminal_login.json` file should look like:
-\`\`\`json
+Sample format for 'terminal_login.json':
+```
 {
   "username": "your_username",
   "password": "your_password",
   "master_traders": ["trader_1", "trader_2"]
 }
-\`\`\`
+```
+### How to Use
 
-## Usage
+1. Open a terminal window and navigate to the root folder of the project.
+2. To run the bot, execute the Python code: 'from bot import bot_runner; bot_runner()'
 
-To run the MetaTrader EA Bot:
+## Building the Executable
 
-1. Open your terminal and navigate to the project's root directory.
-2. Run the following Python code:
-   \`\`\`python
-   from bot import bot_runner
-   bot_runner()
-   \`\`\`
+1. Go to the directory containing the 'build.bat' script.
+2. To build a standalone version of the bot, run the command: 'build.bat'
 
-## Building the Bot
+## Code Anatomy
 
-To build a standalone executable version of the bot:
+- 'bot.py': Houses the core classes and methods
+  - 'TradingFromSignal': Central class containing methods for bot operation, signal processing, and exception handling.
+  - 'worker()': Initializes an instance of 'TradingFromSignal' and executes the bot.
+  - 'validate_mt5_settings()': Validates MetaTrader 5 configurations.
+  - 'bot_runner()': Manages the configuration, validates settings, and initiates the bot.
 
-1. Navigate to the directory containing the `build.bat` script.
-2. Run the following command:
-   \`\`\`
-   build.bat
-   \`\`\`
-
-This script will package the bot as a standalone executable and copy necessary files to the distribution directory.
-
-## Code Overview
-
-- `bot.py`: Contains the core classes and functions
-  - `TradingFromSignal`: Main class, includes methods for running the bot, processing signals, and handling exceptions.
-  - `worker()`: Function that initializes an instance of `TradingFromSignal` and runs the bot.
-  - `validate_mt5_settings()`: Function that validates MetaTrader 5 settings.
-  - `bot_runner()`: Reads the configuration, validates settings, and starts the bot.
-
-- `build.bat`: Script to build the bot into an executable file
-  - Captures the current build time.
+- 'build.bat': A script for compiling the bot into an executable
+  - Captures the current build timestamp.
   - Compiles into a standalone executable.
-  - Copies `terminal_login.json` and `version.py` files to the distribution directory.
+  - Copies 'terminal_login.json' and 'version.py' to the output directory.
 
-## Contributing
+## Get Involved
 
-For information on how to contribute, please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+For contribution guidelines, please see the 'CONTRIBUTING.md' file.
 
-## License
+## Legal
 
-This project is licensed under the MIT License. See the [LICENSE.md](LICENSE.md) file for details.
+### License
 
+This software is under the MIT License. Refer to the 'LICENSE.md' file for full details.
